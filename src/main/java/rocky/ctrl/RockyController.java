@@ -27,6 +27,8 @@ public class RockyController {
 	
 	private static Integer port = 10809;
 
+	// HARD-CODED for now
+	private static String nodeID = "node0";
 	
 	public static void main (String args[]) throws IOException {
 		System.out.println("Hello, Rocky");

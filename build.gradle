@@ -17,10 +17,12 @@ targetCompatibility = 1.8
 
 //create a single Jar with all dependencies
 task fatJar(type: Jar) {
+	 group = 'rocky'
+	 description = 'rocky fatJar build task'
      manifest {
      	      attributes 'Implementation-Title': 'Gradle Jar File Example',
 	      		 'Implementation-Version': version,
-			 'Main-Class': 'strata.conex.TestingEngine'
+			 'Main-Class': 'rocky.ctrl.RockyController'
      }
      baseName = project.name + '-all'
      from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
@@ -38,7 +40,31 @@ dependencies {
     //compile 'com.datastax.oss:java-driver-core:4.3.1'
     //compile 'com.datastax.oss:java-driver-query-builder:4.3.1'
     //compile 'com.datastax.oss:java-driver-mapper-runtime:4.3.1'
-    compile group: 'com.google.guava', name: 'guava', version: '27.0-jre'
+    compile group: 'com.google.guava', name: 'guava', version: '29.0-jre'
+    
+    // https://mvnrepository.com/artifact/org.foundationdb/fdb-java
+	compile group: 'org.foundationdb', name: 'fdb-java', version: '5.2.5'
+	// https://mvnrepository.com/artifact/org.hdrhistogram/HdrHistogram
+	compile group: 'org.hdrhistogram', name: 'HdrHistogram', version: '1.2.1'
+	compile group: 'com.github.spullara.cli-parser', name: 'cli-parser', version: '1.1.2'
+    // https://mvnrepository.com/artifact/io.netty/netty-all
+	compile group: 'io.netty', name: 'netty-all', version: '4.0.23.Final'
+	// https://mvnrepository.com/artifact/com.google.guava/failureaccess
+	compile group: 'com.google.guava', name: 'failureaccess', version: '1.0.1'
+	// https://mvnrepository.com/artifact/com.google.guava/listenablefuture
+	compile group: 'com.google.guava', name: 'listenablefuture', version: '9999.0-empty-to-avoid-conflict-with-guava'
+	// https://mvnrepository.com/artifact/com.google.code.findbugs/jsr305
+	compile group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
+	// https://mvnrepository.com/artifact/org.checkerframework/checker-qual
+	compile group: 'org.checkerframework', name: 'checker-qual', version: '2.11.1'
+	// https://mvnrepository.com/artifact/com.google.errorprone/error_prone_annotations
+	compile group: 'com.google.errorprone', name: 'error_prone_annotations', version: '2.3.4'
+	// https://mvnrepository.com/artifact/com.google.j2objc/j2objc-annotations
+	compile group: 'com.google.j2objc', name: 'j2objc-annotations', version: '1.3'
+	// https://mvnrepository.com/artifact/junit/junit
+	testCompile group: 'junit', name: 'junit', version: '4.11'
+	// https://mvnrepository.com/artifact/org.hamcrest/hamcrest-core
+	testCompile group: 'org.hamcrest', name: 'hamcrest-core', version: '1.3'	
 }
 
 [compileJava, compileTestJava]*.options*.compilerArgs = ['-Xlint:all']
