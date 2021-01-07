@@ -46,7 +46,7 @@ public class NBDVolumeServer implements Runnable {
   public NBDVolumeServer(String exportName, DataInputStream in, DataOutputStream out) throws IOException {
     this.exportName = exportName;
     log = Logger.getLogger("NDB: " + exportName);
-    storage = new LCVDStorage(exportName);
+    storage = new BasicLCVDStorage(exportName);
     log.info("Mounting " + exportName + " of size " + storage.size());
     storage.connect();
     this.in = in;

@@ -1,15 +1,22 @@
 package rocky.ctrl;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.LongAdder;
 
-public class LCVDStorage extends FDBStorage {
+import com.google.common.primitives.Longs;
+
+public class BasicLCVDStorage extends FDBStorage {
 
 	String nodeID;
+	public static final long MAX_SIZE = 51200; // HARD-CODED  512 bytes * 100
+
 	
+	public byte[] presence_bitmap;
+	public byte[] dirty_bitmap;
+			
 //	private final String lcvdFilePath;
 //	private final LongAdder writesStarted;
 //	private final LongAdder writesComplete;
@@ -24,8 +31,7 @@ public class LCVDStorage extends FDBStorage {
 	//String lcvdFileName = "lcvd";
 	//long diskSize = 64; //64 bytes
 	
-	public LCVDStorage(String exportName) {
-		// TODO Auto-generated constructor stub
+	public BasicLCVDStorage(String exportName) {
 		super(exportName);		
 	}
 
@@ -101,7 +107,4 @@ public class LCVDStorage extends FDBStorage {
 		
 		return super.usage();
 	}
-
-	
-	
 }

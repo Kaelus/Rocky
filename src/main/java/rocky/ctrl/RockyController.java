@@ -9,9 +9,12 @@ import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -61,6 +64,7 @@ public class RockyController {
 	          byte[] bytes = new byte[length];
 	          in.readFully(bytes);
 	          String exportName = new String(bytes, Charsets.UTF_8);
+	          //exportName = getUniqueExportName();
 	          log.info("Connecting client to " + exportName);
 	          NBDVolumeServer nbdVolumeServer = new NBDVolumeServer(exportName, in, out);
 	          log.info("Volume mounted");
@@ -76,4 +80,21 @@ public class RockyController {
 	      });
 	    }
 	  }
+
+	private static String getUniqueExportName() {
+		InetAddress ip = null;
+		try {
+			ip = InetAddress.getLocalHost();
+		} catch (UnknownHostException e) {
+			System.err.println("UnknownHostException..");
+			e.printStackTrace();
+		}
+		String ipStr = ip.toString().split("/")[1];
+		System.out.println("IP address is " + ipStr);
+		String vmName = ManagementFactory.getRuntimeMXBean().getName();
+        int p = vmName.indexOf("@");
+        String pid = vmName.substring(0, p);
+        System.out.println(pid);
+		return pid + "_" + ipStr;
+	}
 }
