@@ -6,8 +6,12 @@ import static rocky.ctrl.NBD.NBD_OPT_EXPORT_NAME;
 import static rocky.ctrl.NBD.OPTS_MAGIC_BYTES;
 
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
@@ -30,11 +34,21 @@ public class RockyController {
 	
 	private static Integer port = 10809;
 
-	// HARD-CODED for now
-	private static String nodeID = "node0";
+	private static String nodeID;
+	
+	public static String lcvdName;
 	
 	public static void main (String args[]) throws IOException {
 		System.out.println("Hello, Rocky");
+		if (args.length < 2) {
+			System.out.println("no config file is given.");
+			System.out.println("Default port is=" + port);
+		} else if (args.length >= 2) {
+			System.out.println("given config file=" + args[1]);
+			parseRockyControllerConfig(args[1]);
+		}
+		nodeID = "node" + getProcID();
+		System.out.println("nodeID=" + nodeID);
 		
 		ExecutorService es = Executors.newCachedThreadPool();
 	    log.info("Listening for nbd-client connections");
@@ -65,7 +79,15 @@ public class RockyController {
 	          in.readFully(bytes);
 	          String exportName = new String(bytes, Charsets.UTF_8);
 	          //exportName = getUniqueExportName();
-	          log.info("Connecting client to " + exportName);
+	          if (lcvdName != null) {
+	        	  if (!exportName.equals(lcvdName)) {
+		        	  System.err.println("exportName and lcvdName do not match!");
+		        	  System.err.println("exportName=" + exportName);
+		        	  System.err.println("lcvdName=" + lcvdName);
+		        	  System.exit(1);
+		          }
+	          }
+	          log.info("Connecting client to exportName=" + exportName);
 	          NBDVolumeServer nbdVolumeServer = new NBDVolumeServer(exportName, in, out);
 	          log.info("Volume mounted");
 	          nbdVolumeServer.run();
@@ -80,6 +102,37 @@ public class RockyController {
 	      });
 	    }
 	  }
+
+	private static void parseRockyControllerConfig(String configFile) {
+		File confFile = new File(configFile);
+		if (!confFile.exists()) {
+			if (!confFile.mkdir()) {
+				System.err.println("Unable to find " + confFile);
+	            System.exit(1);
+	        }
+		}
+		try (BufferedReader br = new BufferedReader(new FileReader(configFile))) {
+		    String line;
+		    while ((line = br.readLine()) != null) {
+		       if (line.startsWith("port")) {
+		    	   String[] tokens = line.split("=");
+		    	   String portStr = tokens[1];
+		    	   port = Integer.parseInt(portStr);
+		    	   System.out.println("port=" + port);
+		       } else if (line.startsWith("LCVDName")) {
+		    	   String[] tokens = line.split("=");
+		    	   lcvdName = tokens[1];
+		    	   System.out.println("LCVDName=" + lcvdName);
+		       }
+		    }
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+			System.exit(1);
+		} catch (IOException e) {
+			e.printStackTrace();
+			System.exit(1);
+		}
+	}
 
 	private static String getUniqueExportName() {
 		InetAddress ip = null;
@@ -97,4 +150,13 @@ public class RockyController {
         System.out.println(pid);
 		return pid + "_" + ipStr;
 	}
+	
+	private static String getProcID() {
+		String vmName = ManagementFactory.getRuntimeMXBean().getName();
+        int p = vmName.indexOf("@");
+        String pid = vmName.substring(0, p);
+        //System.out.println(pid);
+        return pid;
+	}
+	
 }

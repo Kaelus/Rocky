@@ -16,6 +16,26 @@ Follow the instruction at https://apple.github.io/foundationdb/getting-started-l
 $ sudo apt-get update
 $ sudo apt-get install nbd nbd-client
 
+3. Need to create a foundationdb volume in advance.
+
+Clone the nbd on foudationdb, and go to the project home
+$ git clone https://github.com/spullara/nbd.git
+
+Need to update pom.xml before build:
+- Find the line for foundationdb
+- Fix it to direct to the correct repository by referring:
+  https://mvnrepository.com/artifact/org.foundationdb/fdb-java/5.2.5
+
+Then, build (This will create nbdcli.jar under the directory 'target')
+$ mvn package
+
+To create the volume, follow the instruction at (https://github.com/spullara/nbd)
+$ java -jar nbdcli.jar server
+$ java -jar nbdcli.jar create -n testing -s 1G
+(Note 'testing' can be replaced with any 'volume name')
+(Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes)
+(Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes)
+
 [How to run]
 
 1. Run Rocky Controller (NBD server)
@@ -32,11 +52,25 @@ $ sudo nbd-client -d
 To remove Rocky Block Device module from the kernel,
 $ sudo modprobe -r nbd
 
-
 [To Test]
 $ sudo mkfs.ext4 /dev/nbd0
 $ sudo mount /dev/nbd0 /tmp
 $ ls
 $ sudo umount /tmp
 
+[To Run multiple Rocky instances on a single host]
+In the directory 'conf', there is an example rocky.conf configuration file.
+Use it at your discretion after setting port and lcvdName accordingly.
+Those configuration parameters should be assigned with a unique value for
+each rocky instance.
+
+For example, suppose port=10810 and lcvdName=testing2.
+Also, say /dev/nbd1 is the Rocky device driver instance to use.
+
+First, run the rocky instance with the correct configuration file path name.
+(e.g. run/rocky.conf).
+$ java -jar `pwd`/build/libs/rocky-code-all-1.0.jar rocky.ctrl.RockyController run/rocky.conf
+
+Then, run nbd-client for the second rocky instance with correct parameters.
+$ sudo nbd-client -N testing2 localhost 10810 /dev/nbd1
 
