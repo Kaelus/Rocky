@@ -113,7 +113,8 @@ public class FDBArray {
   }
 
   protected FDBArray(Database database, DirectorySubspace ds, Long snapshot) {
-    this.ds = ds;
+    System.out.println("Entered FDBArray");
+	this.ds = ds;
     this.snapshot = snapshot;
     this.database = database;
     this.metadata = get(ds.createOrOpen(database, singletonList("metadata")));
@@ -132,6 +133,7 @@ public class FDBArray {
     } else {
       blockSize = currentBlocksize;
     }
+    System.out.println("blockSize=" + blockSize);
     parentArray = database.run(tx -> {
       byte[] parentPathValue = get(tx.get(metadata.get(PARENT_KEY).pack()));
       byte[] parentTimestampBytes = get(tx.get(metadata.get(PARENT_TIMESTAMP_KEY).pack()));

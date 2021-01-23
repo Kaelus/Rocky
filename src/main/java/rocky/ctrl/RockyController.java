@@ -26,30 +26,48 @@ import java.util.logging.Logger;
 
 import com.google.common.base.Charsets;
 
+
 //import nbdfdb.NBDVolumeServer;
 
 public class RockyController {
 
 	private static Logger log = Logger.getLogger("NBD");
 	
-	private static Integer port = 10809;
+	private static Integer port;
 
 	private static String nodeID;
 	
 	public static String lcvdName;
 	
+	public enum RockyModeType {Basic, Advanced, Secure, Unknown};
+	public static RockyModeType rockyMode; 
+	
+	public enum BackendStorageType {DynamoDBLocal, DynamoDB, Unknown};
+	public static BackendStorageType backendStorage;
+	
 	public static void main (String args[]) throws IOException {
 		System.out.println("Hello, Rocky");
+		//default variable settings
+		port = 10809;
+		rockyMode = RockyModeType.Basic;
+		backendStorage = BackendStorageType.DynamoDBLocal;
+		
+		//update variables using config if given
 		if (args.length < 2) {
 			System.out.println("no config file is given.");
-			System.out.println("Default port is=" + port);
 		} else if (args.length >= 2) {
 			System.out.println("given config file=" + args[1]);
 			parseRockyControllerConfig(args[1]);
 		}
 		nodeID = "node" + getProcID();
+
+		//print out variable settings
 		System.out.println("nodeID=" + nodeID);
-		
+		System.out.println("port=" + port);
+		System.out.println("rockyMode=" + rockyMode);
+		System.out.println("backendStorageType=" + backendStorage);
+
+		//start
 		ExecutorService es = Executors.newCachedThreadPool();
 	    log.info("Listening for nbd-client connections");
 	    ServerSocket ss = new ServerSocket(port);
@@ -123,6 +141,38 @@ public class RockyController {
 		    	   String[] tokens = line.split("=");
 		    	   lcvdName = tokens[1];
 		    	   System.out.println("LCVDName=" + lcvdName);
+		       } else if (line.startsWith("rockyMode")) {
+		    	   String[] tokens = line.split("=");
+		    	   String rockyModeTypeStr = tokens[1];
+		    	   if (rockyModeTypeStr.equals("basic")) {
+		    		   rockyMode = RockyModeType.Basic;
+		    	   } else if (rockyModeTypeStr.equals("advanced")) {
+		    		   rockyMode = RockyModeType.Advanced;
+		    	   } else if (rockyModeTypeStr.equals("secure")) {
+		    		   rockyMode = RockyModeType.Secure;
+		    	   } else {
+		    		   rockyMode = RockyModeType.Unknown;
+		    	   }
+		    	   System.out.println("rockyModeType=" + rockyMode);
+		    	   if (rockyMode.equals(RockyModeType.Unknown)) {
+		    		   System.err.println("Error: Cannot support Unknown RockyModeType");
+		    		   System.exit(1);
+		    	   }
+		       } else if (line.startsWith("backendStorageType")) {
+		    	   String[] tokens = line.split("=");
+		    	   String backendStorageTypeStr = tokens[1];
+		    	   if (backendStorageTypeStr.equals("dynamoDBLocal")) {
+		    		   backendStorage = BackendStorageType.DynamoDBLocal;
+		    	   } else if (backendStorageTypeStr.equals("dynamoDB")) {
+		    		   backendStorage = BackendStorageType.DynamoDB;
+		    	   } else {
+		    		   backendStorage = BackendStorageType.Unknown;
+		    	   }
+		    	   System.out.println("backendStorageType=" + backendStorage);
+		    	   if (backendStorage.equals(BackendStorageType.Unknown)) {
+		    		   System.err.println("Error: Cannot support Unknown backendStorageType");
+		    		   System.exit(1);
+		    	   }
 		       }
 		    }
 		} catch (FileNotFoundException e) {

@@ -32,7 +32,7 @@ $ mvn package
 To create the volume, follow the instruction at (https://github.com/spullara/nbd)
 $ java -jar nbdcli.jar server
 $ java -jar nbdcli.jar create -n testing -s 1G
-(Note 'testing' can be replaced with any 'volume name')
+(Note 'testing' can be replaced with any volume name)
 (Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes)
 (Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes)
 
@@ -44,10 +44,11 @@ $ java -jar `pwd`/build/libs/rocky-code-all-1.0.jar rocky.ctrl.RockyController
 2. Prepare the Rocky Block Device (nbd module & nbd client)
 $ sudo modprobe nbd
 $ sudo lsmod | grep nbd
-$ sudo nbd-client -N <name> localhost /dev/nbd0
+$ sudo nbd-client -N <volume name> localhost /dev/nbd0
+(testing is one of volume names)
 
 To disconnect the Rocky Block Device from the Rocky server,
-$ sudo nbd-client -d
+$ sudo nbd-client -d /dev/nbd0
 
 To remove Rocky Block Device module from the kernel,
 $ sudo modprobe -r nbd

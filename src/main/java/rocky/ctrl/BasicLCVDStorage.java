@@ -1,21 +1,16 @@
 package rocky.ctrl;
 
-import java.lang.management.ManagementFactory;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.LongAdder;
-
-import com.google.common.primitives.Longs;
 
 public class BasicLCVDStorage extends FDBStorage {
 
 	String nodeID;
 	public static final long MAX_SIZE = 51200; // HARD-CODED  512 bytes * 100
-
+	public static final int blockSize = 512;
 	
-	public byte[] presence_bitmap;
-	public byte[] dirty_bitmap;
+	public BitSet presenceBitmap;
+	public BitSet dirtyBitmap;
 			
 //	private final String lcvdFilePath;
 //	private final LongAdder writesStarted;
@@ -73,6 +68,21 @@ public class BasicLCVDStorage extends FDBStorage {
 //		
 //		return null;
 		
+		long firstBlock = offset / blockSize;
+	    int length = buffer.length;
+	    long lastBlock = (offset + length) / blockSize;
+	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
+	    	byte[] blockData = new byte[blockSize];
+	    	if (presenceBitmap.get(i)) {
+				super.read(blockData, i * blockSize);
+				System.arraycopy(blockData, 0, buffer, i * blockSize, blockSize);
+			} else {
+				// read from the cloud backend
+				
+				System.arraycopy(blockData, 0, buffer, i * blockSize, blockSize);
+			}
+	    }
+	    
 		return super.read(buffer, offset);
 	}
 

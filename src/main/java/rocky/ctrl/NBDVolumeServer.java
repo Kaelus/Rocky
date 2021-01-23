@@ -21,6 +21,7 @@ import com.google.common.primitives.UnsignedInteger;
 import com.google.common.primitives.UnsignedLong;
 
 import rocky.ctrl.NBD.*;
+import rocky.ctrl.RockyController.RockyModeType;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -41,12 +42,23 @@ public class NBDVolumeServer implements Runnable {
   private final DataInputStream in;
   private final DataOutputStream out;
   private final String exportName;
-  private final Storage storage;
-
+  //private final Storage storage;
+  private Storage storage;
+  
   public NBDVolumeServer(String exportName, DataInputStream in, DataOutputStream out) throws IOException {
     this.exportName = exportName;
     log = Logger.getLogger("NDB: " + exportName);
-    storage = new BasicLCVDStorage(exportName);
+    storage = null;
+    if (RockyController.rockyMode.equals(RockyModeType.Basic)) {
+    	storage = new BasicLCVDStorage(exportName);
+    } else if (RockyController.rockyMode.equals(RockyModeType.Advanced)) {
+    	storage = new AdvancedLCVDStorage(exportName);
+    } else if (RockyController.rockyMode.equals(RockyModeType.Secure)) {
+    	storage = new SecureLCVDStorage(exportName);
+    } else {
+    	System.err.println("ERROR: Unknown RockyMode=" + RockyController.rockyMode);
+    	System.exit(1);
+    }
     log.info("Mounting " + exportName + " of size " + storage.size());
     storage.connect();
     this.in = in;
