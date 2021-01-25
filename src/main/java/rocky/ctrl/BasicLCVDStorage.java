@@ -3,6 +3,9 @@ package rocky.ctrl;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 
+import rocky.ctrl.cloud.GenericKeyValueStore;
+import rocky.ctrl.cloud.ValueStorageDynamoDB;
+
 public class BasicLCVDStorage extends FDBStorage {
 
 	String nodeID;
@@ -11,6 +14,14 @@ public class BasicLCVDStorage extends FDBStorage {
 	
 	public BitSet presenceBitmap;
 	public BitSet dirtyBitmap;
+
+	public String pBmTableName = "presenceBitmapTable";
+	public String dBmTableName = "dirtyBitmapTable";
+	public String blockDataTableName = "blockDataTable";
+	
+	GenericKeyValueStore pBmStore;
+	GenericKeyValueStore dBmStore;
+	GenericKeyValueStore blockDataStore;
 			
 //	private final String lcvdFilePath;
 //	private final LongAdder writesStarted;
@@ -27,7 +38,19 @@ public class BasicLCVDStorage extends FDBStorage {
 	//long diskSize = 64; //64 bytes
 	
 	public BasicLCVDStorage(String exportName) {
-		super(exportName);		
+		super(exportName);
+		if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, true);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, true);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, true);
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, false);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, false);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, false);			
+		} else {
+			System.err.println("Error: Unknown backendStorageType");
+ 		   	System.exit(1);
+		}
 	}
 
 	@Override

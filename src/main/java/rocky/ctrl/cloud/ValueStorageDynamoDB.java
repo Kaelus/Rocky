@@ -41,7 +41,7 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 	AmazonDynamoDB client;
 	DynamoDB dynamoDB;
 	String tableName;
-    Table table;
+	Table table;
     public Boolean consistHSReads = false;
 	
 	public ValueStorageDynamoDB(String filename, boolean localMode) {
@@ -57,7 +57,7 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 		
 		dynamoDB = new DynamoDB(client);
 
-		// we use filename given as the table name
+		// Create tables
 		tableName = filename;
 		
 		// check if the given tableName already exists in the database
@@ -66,56 +66,36 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 			System.out.println("The table name " + tableName + " already exists.");
 			table = dynamoDB.getTable(tableName);
 		} else {
-			createTable(tableName);
+			table = createTable(tableName);
 		}
 	}
 	
-	private void createTable(String tableName) {
+	private Table createTable(String tableName) {
+		Table retTable = null;
         try {
             System.out.println("Attempting to create table; please wait...");
-    		if (tableName.contentEquals("historykeyspace")) {
-    			table = dynamoDB.createTable(tableName,
-    					Arrays.asList(new KeySchemaElement("keyspace", KeyType.HASH), // Partition
-    							                                                      // key
-    							new KeySchemaElement("timestamp", KeyType.RANGE)), // Sort key
-    					Arrays.asList(new AttributeDefinition("keyspace", ScalarAttributeType.S),
-    							new AttributeDefinition("timestamp", ScalarAttributeType.S)),
-    					new ProvisionedThroughput(10L, 10L));
-    		} else if (tableName.contentEquals("datakeyspace")) {
-    			table = dynamoDB.createTable(tableName,
+            retTable = dynamoDB.createTable(tableName,
     					Arrays.asList(new KeySchemaElement("key", KeyType.HASH)), // Partition
-					                                                            // key
-    					Arrays.asList(new AttributeDefinition("key", ScalarAttributeType.S)),
+    					Arrays.asList(new AttributeDefinition("key", ScalarAttributeType.N)),
     					new ProvisionedThroughput(10L, 10L));
-    		} else {
-    			System.err.println("Unknown tableName. Pick either historykeyspace or datakeyspace");
-    			System.exit(1);
-    		}
-    		table.waitForActive();
-            System.out.println("Success.  Table status: " + table.getDescription().getTableStatus());
+    		retTable.waitForActive();
+            System.out.println("Success.  Table status: " + retTable.getDescription().getTableStatus());
 
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             System.err.println("Unable to create table: ");
             System.err.println(e.getMessage());
-        }		
+        }
+        return retTable;
 	}
 	
 	@Override
 	public void finish() throws IOException {
-		// TODO Auto-generated method stub
 		client.shutdown();
 		dynamoDB.shutdown();
 	}
 
 	@Override
 	public byte[] get(String key) throws IOException {
-		// ASSERT: should not be called for historykeyspace table 
-		if (tableName.contentEquals("historykeyspace")) {
-			System.err.println("ASSERT: should not be called for historykeyspace table");
-			System.exit(1);
-		}
-		
 		byte[] retValue = null;
 		
 		GetItemSpec spec = new GetItemSpec().withPrimaryKey("key", key);
@@ -137,49 +117,7 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 
 	@Override
 	public SortedMap<String, byte[]> get(String start, String end) throws IOException, ParseException {
-		// ASSERT: should be called only for historykeyspace table 
-		if (!tableName.contentEquals("historykeyspace")) {
-			System.err.println("ASSERT: should not be called for historykeyspace table");
-			System.exit(1);
-		}
-
-		SortedMap<String, byte[]> histSeg = null;
-		
-		Map<String, String> nameMap = new HashMap<String, String>();
-        nameMap.put("#ks", "keyspace");
-		nameMap.put("#ts", "timestamp");
-
-        Map<String, Object> valueMap = new HashMap<String, Object>();
-        valueMap.put(":ksn", tableName);
-        valueMap.put(":start", start);
-        valueMap.put(":end", end);
-        
-		QuerySpec querySpec = new QuerySpec()
-				.withKeyConditionExpression("#ks = :ksn and #ts between :start and :end")
-				.withNameMap(nameMap)
-				.withValueMap(valueMap);
-		querySpec = querySpec.withConsistentRead(consistHSReads);
-       
-		ItemCollection<QueryOutcome> items = null;
-        Iterator<Item> iterator = null;
-        Item item = null;
-		
-		//try {
-			System.out.println("Operations from " + start + " and " + end);
-			items = table.query(querySpec);
-			iterator = items.iterator();
-			histSeg = new TreeMap<String, byte[]>();
-			while (iterator.hasNext()) {
-				item = iterator.next();
-				histSeg.put(item.getString("timestamp"), item.getBinary("operation"));
-			}
-		//}
-		//catch (Exception e) {
-		//	System.err.println("Unable to query movies from " + start + " and " + end);
-		//	System.err.println(e.getMessage());
-		//}
-
-		return histSeg;
+		return null;
 	}
 
 	@Override
@@ -187,21 +125,9 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 		try {
             System.out.println("Adding a new item...");
             PutItemOutcome outcome = null;
-    		if (tableName.contentEquals("historykeyspace")) {
-    			System.out.println("Adding to historykeyspace");
-    			outcome = table.putItem(new Item().withPrimaryKey("keyspace", tableName, 
-    					"timestamp", key).withBinary("operation", value));
-    		} else if (tableName.contentEquals("datakeyspace")) {
-    			System.out.println("Adding to datakeyspace");
-				outcome = table.putItem(new Item().withPrimaryKey("key", key).withBinary(
-						"value", value));
-    		} else {
-    			System.err.println("Unknown tableName. Pick either historykeyspace or datakeyspace");
-    			System.exit(1);
-    		}
-            
-            System.out.println("PutItem succeeded:\n" + outcome.getPutItemResult());
-
+   			outcome = table.putItem(new Item().withPrimaryKey("key", key)
+   					.withBinary("value", value));
+   			System.out.println("PutItem succeeded:\n" + outcome.getPutItemResult());
 		} catch (Exception e) {
 			System.err.println("Unable to add item: " + key);
 			System.err.println(e.getMessage());
@@ -211,38 +137,17 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 
 	@Override
 	public void remove(String key) {
-		if (tableName.contentEquals("historykeyspace")) {
-			DeleteItemSpec deleteItemSpec = new DeleteItemSpec()
-	                .withPrimaryKey(new PrimaryKey("keyspace", tableName, "timestamp", key));
-
-	        try {
-	            System.out.println("Attempting a delete...");
-	            table.deleteItem(deleteItemSpec);
-	            System.out.println("DeleteItem succeeded");
-	        }
-	        catch (Exception e) {
-	            System.err.println("Unable to delete item: " + key);
-	            System.err.println(e.getMessage());
-	        }
-
-		} else if (tableName.contentEquals("datakeyspace")) {
-			DeleteItemSpec deleteItemSpec = new DeleteItemSpec()
-	                .withPrimaryKey(new PrimaryKey("key", key));
-
-	        try {
-	            System.out.println("Attempting a delete...");
-	            table.deleteItem(deleteItemSpec);
-	            System.out.println("DeleteItem succeeded");
-	        }
-	        catch (Exception e) {
-	            System.err.println("Unable to delete item: " + key);
-	            System.err.println(e.getMessage());
-	        }
-
-		} else {
-			System.err.println("Unknown tableName. Pick either historykeyspace or datakeyspace");
-			System.exit(1);
-		}
+		DeleteItemSpec deleteItemSpec = new DeleteItemSpec()
+                .withPrimaryKey(new PrimaryKey("key", key));
+        try {
+            System.out.println("Attempting a delete...");
+            table.deleteItem(deleteItemSpec);
+            System.out.println("DeleteItem succeeded");
+        }
+        catch (Exception e) {
+            System.err.println("Unable to delete item: " + key);
+            System.err.println(e.getMessage());
+        }
 	}
 	
 	public static void main(String[] args) throws IOException {
