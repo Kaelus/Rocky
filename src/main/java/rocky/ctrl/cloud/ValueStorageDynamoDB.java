@@ -76,7 +76,7 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
             System.out.println("Attempting to create table; please wait...");
             retTable = dynamoDB.createTable(tableName,
     					Arrays.asList(new KeySchemaElement("key", KeyType.HASH)), // Partition
-    					Arrays.asList(new AttributeDefinition("key", ScalarAttributeType.N)),
+    					Arrays.asList(new AttributeDefinition("key", ScalarAttributeType.S)),
     					new ProvisionedThroughput(10L, 10L));
     		retTable.waitForActive();
             System.out.println("Success.  Table status: " + retTable.getDescription().getTableStatus());
@@ -86,6 +86,17 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
             System.err.println(e.getMessage());
         }
         return retTable;
+	}
+	
+	public void deleteTable(String tableName) {
+		Table tableToDelete = dynamoDB.getTable(tableName);
+		tableToDelete.delete();
+		try {
+			tableToDelete.waitForDelete();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	@Override
