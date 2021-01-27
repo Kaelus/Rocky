@@ -1,5 +1,6 @@
 package rocky.ctrl;
 
+import java.io.IOException;
 import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 
@@ -96,16 +97,29 @@ public class BasicLCVDStorage extends FDBStorage {
 	    long lastBlock = (offset + length) / blockSize;
 	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
 	    	byte[] blockData = new byte[blockSize];
-	    	if (presenceBitmap.get(i)) {
+	    	boolean isPresent = false;
+	    	synchronized(presenceBitmap) {
+	    		isPresent = presenceBitmap.get(i);
+	    	}
+	    	if (isPresent) {
 				super.read(blockData, i * blockSize);
 				System.arraycopy(blockData, 0, buffer, i * blockSize, blockSize);
 			} else {
-				// read from the cloud backend
-				
+				// read from the cloud backend (slow path)
+				try {
+					blockData = blockDataStore.get(String.valueOf(i));
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 				System.arraycopy(blockData, 0, buffer, i * blockSize, blockSize);
+				super.write(blockData, i * blockSize);
+				super.flush();
+				synchronized(presenceBitmap) {
+					presenceBitmap.set(i);
+				}
 			}
 	    }
-	    
 		return super.read(buffer, offset);
 	}
 
@@ -114,6 +128,14 @@ public class BasicLCVDStorage extends FDBStorage {
 //		// TODO Auto-generated method stub
 //		return null;
 		
+		long firstBlock = offset / blockSize;
+		int length = buffer.length;
+	    long lastBlock = (offset + length) / blockSize;
+	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
+	    	synchronized(dirtyBitmap) {
+	    		dirtyBitmap.set(i);
+	    	}
+	    }		
 		return super.write(buffer, offset);
 	}
 
