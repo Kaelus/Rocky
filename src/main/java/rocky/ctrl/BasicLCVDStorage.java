@@ -52,6 +52,10 @@ public class BasicLCVDStorage extends FDBStorage {
 			System.err.println("Error: Unknown backendStorageType");
  		   	System.exit(1);
 		}
+		int numBlock = (int) (size() / 512); //blocksize=512bytes
+		presenceBitmap = new BitSet(numBlock);
+		dirtyBitmap = new BitSet(numBlock);
+		presenceBitmap.set(0, numBlock);
 	}
 
 	@Override

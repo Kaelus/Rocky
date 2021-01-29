@@ -43,7 +43,7 @@ public class FDBStorage implements Storage {
   private final FDBArray fdbArray;
   private final LongAdder writesStarted;
   private final LongAdder writesComplete;
-  private final long size;
+  protected final long size;
   private final String exportName;
 
   private TimerTask leaseTask;
