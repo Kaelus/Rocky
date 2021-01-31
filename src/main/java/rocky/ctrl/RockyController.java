@@ -45,12 +45,21 @@ public class RockyController {
 	public enum BackendStorageType {DynamoDBLocal, DynamoDB, Unknown};
 	public static BackendStorageType backendStorage;
 	
+	public enum RockyControllerRoleType {Owner, NonOwner, None};
+	public static RockyControllerRoleType role;
+	
+	public static int epochPeriod;
+	public static int prefetchPeriod;
+		
 	public static void main (String args[]) throws IOException {
 		System.out.println("Hello, Rocky");
 		//default variable settings
 		port = 10809;
 		rockyMode = RockyModeType.Basic;
 		backendStorage = BackendStorageType.DynamoDBLocal;
+		role = RockyControllerRoleType.None;
+		epochPeriod = 30000; // 30sec
+		prefetchPeriod = 300000; // 5min
 		
 		//update variables using config if given
 		if (args.length < 2) {

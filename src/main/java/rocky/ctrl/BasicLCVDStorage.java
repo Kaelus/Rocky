@@ -2,10 +2,16 @@ package rocky.ctrl;
 
 import java.io.IOException;
 import java.util.BitSet;
+import java.util.HashMap;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingDeque;
 
 import rocky.ctrl.cloud.GenericKeyValueStore;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
+import rocky.ctrl.utils.ByteUtils;
 
 public class BasicLCVDStorage extends FDBStorage {
 
@@ -13,17 +19,27 @@ public class BasicLCVDStorage extends FDBStorage {
 	public static final long MAX_SIZE = 51200; // HARD-CODED  512 bytes * 100
 	public static final int blockSize = 512;
 	
-	public BitSet presenceBitmap;
-	public BitSet dirtyBitmap;
+	public static BitSet presenceBitmap;
+	public static BitSet dirtyBitmap;
 
 	public String pBmTableName = "presenceBitmapTable";
 	public String dBmTableName = "dirtyBitmapTable";
 	public String blockDataTableName = "blockDataTable";
 	
-	GenericKeyValueStore pBmStore;
-	GenericKeyValueStore dBmStore;
-	GenericKeyValueStore blockDataStore;
-			
+	public GenericKeyValueStore pBmStore;
+	public GenericKeyValueStore dBmStore;
+	public GenericKeyValueStore blockDataStore;
+	
+	private final BlockingQueue<WriteRequest> queue;
+	private HashMap<Integer, byte[]> writeMap;
+
+	public static long epochCnt;
+	
+	class WriteRequest {
+		public byte[] buf;
+		public long offset;
+	}
+	
 //	private final String lcvdFilePath;
 //	private final LongAdder writesStarted;
 //	private final LongAdder writesComplete;
@@ -56,8 +72,28 @@ public class BasicLCVDStorage extends FDBStorage {
 		presenceBitmap = new BitSet(numBlock);
 		dirtyBitmap = new BitSet(numBlock);
 		presenceBitmap.set(0, numBlock);
+		queue = new LinkedBlockingDeque<WriteRequest>();
+		epochCnt = getEpoch();
 	}
 
+	private long getEpoch() {
+		long retLong = 0;
+		byte[] epochBytes;
+		try {
+			epochBytes = blockDataStore.get("EpochCount");
+			ByteUtils.bytesToLong(epochBytes);
+		} catch (IOException e) {
+			System.out.println("EpochCount key is not allocated yet. Allocate it now");
+			try {
+				blockDataStore.put("EpochCount", ByteUtils.longToBytes(retLong));
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+		}
+		return retLong;
+	}
+	
 	@Override
 	public void connect() {
 		// TODO Auto-generated method stub
@@ -139,15 +175,37 @@ public class BasicLCVDStorage extends FDBStorage {
 	    	synchronized(dirtyBitmap) {
 	    		dirtyBitmap.set(i);
 	    	}
-	    }		
+	    }
+	    WriteRequest wr = new WriteRequest();
+	    wr.buf = buffer;
+	    wr.offset = offset;
+	    try {
+			queue.put(wr);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		return super.write(buffer, offset);
 	}
 
+	public void flushToCloud(byte[] buffer, int blockID) {
+	    try {
+			blockDataStore.put(Long.toString(blockID), buffer);
+			long curEpoch = epochCnt++;
+			byte[] dmBytes = dirtyBitmap.toByteArray();
+			dBmStore.put(Long.toString(curEpoch) + "-bitmap", dmBytes);
+			blockDataStore.put("EpochCount", ByteUtils.longToBytes(curEpoch)); 
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
 	@Override
 	public CompletableFuture<Void> flush() {
 //		// TODO Auto-generated method stub
 //		return null;
-		
+
 		return super.flush();
 	}
 
@@ -166,4 +224,123 @@ public class BasicLCVDStorage extends FDBStorage {
 		
 		return super.usage();
 	}
+	
+	public class CloudPackageManager implements Runnable {
+		private final BlockingQueue<WriteRequest> q;
+		public CloudPackageManager(BlockingQueue<WriteRequest> q) { 
+			this.q = q; 
+		}
+		public void run() {
+			try {
+				Timer timer = new Timer();
+				timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
+				while (true) { 
+					WriteRequest wr = q.take();
+					synchronized(writeMap) {
+						writeMap.put((int) (wr.offset / blockSize), wr.buf);
+					}
+				}
+			} catch (InterruptedException e) { 
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	public class CloudFlusher extends TimerTask {
+		public void run() {
+			synchronized(writeMap) {
+				for (Integer i : writeMap.keySet()) {
+					byte[] buf = writeMap.get(i);
+					flushToCloud(buf, i);
+				}
+			}
+		}
+	}
+
+	
+//	/*
+//	 * Periodic Flushing
+//	 */
+//	class EpochFlusher {
+//
+//		ScheduledExecutorService executorService;
+//		
+//		public EpochFlusher() {
+//			executorService = Executors.newSingleThreadScheduledExecutor();
+//		}
+//		
+//		public void startPeriodicFlushing(int epochPeriod) {
+//			executorService.scheduleAtFixedRate(BasicLCVDStorage::periodicFlushToCloud, 0, epochPeriod, TimeUnit.SECONDS);
+//		}
+//		
+//		public void stopPeriodicFlushing() {
+//			executorService.shutdown();
+//			try {
+//				executorService.awaitTermination(60, TimeUnit.SECONDS);
+//			} catch (InterruptedException e) {
+//				e.printStackTrace();
+//				System.err.println("awaitTermination is interrupted");
+//				System.exit(1);
+//			}
+//		}
+//		public void periodicFlushToCloud() {
+//			RockyControllerRoleType myRole = RockyControllerRoleType.None;
+//			synchronized(RockyController.role) {
+//				myRole = RockyController.role;
+//			}
+//			BitSet dirtyBitmapClone;
+//			synchronized(dirtyBitmap) {
+//				dirtyBitmapClone = (BitSet) dirtyBitmap.clone();
+//			}
+//			if (myRole.equals(RockyControllerRoleType.Owner)) {
+//				// writes dirty blocks to the cloud storage service
+//				for (int i = 0; i < dirtyBitmapClone.length(); i++) {
+//					if (dirtyBitmapClone.get(i)) {
+//						byte[] blockDataToFlush = new byte[512];
+//						NBDVolumeServer.storage.read(blockDataToFlush, i * blockSize);
+//					}
+//				}
+//				
+//				// uploads dirty bitmaps to the cloud storage service
+//				
+//				// unset bits in the dirty blocks for flushed dirty blocks
+//
+//			} else {
+//				System.err.println("ASSERT: Not an Owner, nothing to flush periodically");
+//				System.exit(1);
+//			}
+//		}
+//	}
+	
+//	public static void periodicFlushToCloud() {
+//		RockyControllerRoleType myRole = RockyControllerRoleType.None;
+//		synchronized(RockyController.role) {
+//			myRole = RockyController.role;
+//		}
+//		BitSet dirtyBitmapClone;
+//		synchronized(dirtyBitmap) {
+//			dirtyBitmapClone = (BitSet) dirtyBitmap.clone();
+//		}
+//		if (myRole.equals(RockyControllerRoleType.Owner)) {
+//			// writes dirty blocks to the cloud storage service
+//			for (int i = 0; i < dirtyBitmapClone.length(); i++) {
+//				if (dirtyBitmapClone.get(i)) {
+//					byte[] blockDataToFlush = new byte[512];
+//					NBDVolumeServer.storage.read(blockDataToFlush, i * blockSize);
+//					NBDVolumeServer.storage
+//				}
+//			}
+//			
+//			// uploads dirty bitmaps to the cloud storage service
+//			
+//			// unset bits in the dirty blocks for flushed dirty blocks
+//
+//		} else {
+//			System.err.println("ASSERT: Not an Owner, nothing to flush periodically");
+//			System.exit(1);
+//		}
+//	}
+	
+	
 }

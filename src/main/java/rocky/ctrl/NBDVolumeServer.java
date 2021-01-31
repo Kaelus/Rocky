@@ -43,7 +43,7 @@ public class NBDVolumeServer implements Runnable {
   private final DataOutputStream out;
   private final String exportName;
   //private final Storage storage;
-  private Storage storage;
+  public static Storage storage;
   
   public NBDVolumeServer(String exportName, DataInputStream in, DataOutputStream out) throws IOException {
     this.exportName = exportName;
