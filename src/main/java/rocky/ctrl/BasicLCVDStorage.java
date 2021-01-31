@@ -8,6 +8,7 @@ import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import rocky.ctrl.cloud.GenericKeyValueStore;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
@@ -29,7 +30,9 @@ public class BasicLCVDStorage extends FDBStorage {
 	public GenericKeyValueStore pBmStore;
 	public GenericKeyValueStore dBmStore;
 	public GenericKeyValueStore blockDataStore;
-	
+
+	private Thread cloudPackageManagerThread;
+	private final AtomicBoolean running = new AtomicBoolean(false);
 	private final BlockingQueue<WriteRequest> queue;
 	private HashMap<Integer, byte[]> writeMap;
 
@@ -74,6 +77,8 @@ public class BasicLCVDStorage extends FDBStorage {
 		presenceBitmap.set(0, numBlock);
 		queue = new LinkedBlockingDeque<WriteRequest>();
 		epochCnt = getEpoch();
+		CloudPackageManager cpm = new CloudPackageManager(queue);
+		cloudPackageManagerThread = new Thread(cpm); 
 	}
 
 	private long getEpoch() {
@@ -103,7 +108,8 @@ public class BasicLCVDStorage extends FDBStorage {
 //			throw new IllegalStateException("Volume " + exportName + " is already leased");
 //		}
 		super.connect();
-		
+		running.set(true);
+		cloudPackageManagerThread.start();
 	}
 
 	@Override
@@ -114,6 +120,8 @@ public class BasicLCVDStorage extends FDBStorage {
 //		      throw new IllegalStateException("Not connected to " + exportName);
 //	    }
 		super.disconnect();
+		running.set(false);
+		cloudPackageManagerThread.interrupt();
 	}
 
 	@Override
@@ -231,18 +239,18 @@ public class BasicLCVDStorage extends FDBStorage {
 			this.q = q; 
 		}
 		public void run() {
-			try {
-				Timer timer = new Timer();
-				timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
-				while (true) { 
+			Timer timer = new Timer();
+			while (running.get()) { 
+				try {
+					timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
 					WriteRequest wr = q.take();
 					synchronized(writeMap) {
 						writeMap.put((int) (wr.offset / blockSize), wr.buf);
 					}
+				} catch (InterruptedException e) { 
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-			} catch (InterruptedException e) { 
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			}
 		}
 	}
