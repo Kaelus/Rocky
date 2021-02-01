@@ -34,7 +34,7 @@ public class BasicLCVDStorage extends FDBStorage {
 	private Thread cloudPackageManagerThread;
 	private final AtomicBoolean running = new AtomicBoolean(false);
 	private final BlockingQueue<WriteRequest> queue;
-	private HashMap<Integer, byte[]> writeMap;
+	public HashMap<Integer, byte[]> writeMap;
 
 	public static long epochCnt;
 	
@@ -77,24 +77,29 @@ public class BasicLCVDStorage extends FDBStorage {
 		presenceBitmap.set(0, numBlock);
 		queue = new LinkedBlockingDeque<WriteRequest>();
 		epochCnt = getEpoch();
+		writeMap = new HashMap<Integer, byte[]>();
 		CloudPackageManager cpm = new CloudPackageManager(queue);
 		cloudPackageManagerThread = new Thread(cpm); 
 	}
 
-	private long getEpoch() {
+	public long getEpoch() {
 		long retLong = 0;
 		byte[] epochBytes;
 		try {
 			epochBytes = blockDataStore.get("EpochCount");
-			ByteUtils.bytesToLong(epochBytes);
-		} catch (IOException e) {
-			System.out.println("EpochCount key is not allocated yet. Allocate it now");
-			try {
-				blockDataStore.put("EpochCount", ByteUtils.longToBytes(retLong));
-			} catch (IOException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
+			if (epochBytes == null) {
+				System.out.println("EpochCount key is not allocated yet. Allocate it now");
+				try {
+					blockDataStore.put("EpochCount", ByteUtils.longToBytes(retLong));
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			} else {
+				retLong = ByteUtils.bytesToLong(epochBytes);
 			}
+		} catch (IOException e) {
+			e.printStackTrace();
 		}
 		return retLong;
 	}
@@ -121,6 +126,7 @@ public class BasicLCVDStorage extends FDBStorage {
 //	    }
 		super.disconnect();
 		running.set(false);
+		System.out.println("interrupting the cloud package manager thread to terminate");
 		cloudPackageManagerThread.interrupt();
 	}
 
@@ -143,7 +149,15 @@ public class BasicLCVDStorage extends FDBStorage {
 		long firstBlock = offset / blockSize;
 	    int length = buffer.length;
 	    long lastBlock = (offset + length) / blockSize;
-	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
+	    // we assume that buffer size to be blockSize when it is used
+	    // as a block device properly. O.W. it can be smaller than that.
+	    // To make it compatible with the original intention, when 
+	    // we get buffer smaller than blockSize, we increment the loastBlock
+	    // by one.
+	    if (firstBlock == lastBlock) {
+	    	lastBlock++; 
+	    }
+	    for (int i = (int) firstBlock; i < (int) lastBlock || firstBlock == lastBlock; i++) {
 	    	byte[] blockData = new byte[blockSize];
 	    	boolean isPresent = false;
 	    	synchronized(presenceBitmap) {
@@ -179,7 +193,16 @@ public class BasicLCVDStorage extends FDBStorage {
 		long firstBlock = offset / blockSize;
 		int length = buffer.length;
 	    long lastBlock = (offset + length) / blockSize;
+	    // we assume that buffer size to be blockSize when it is used
+	    // as a block device properly. O.W. it can be smaller than that.
+	    // To make it compatible with the original intention, when 
+	    // we get buffer smaller than blockSize, we increment the loastBlock
+	    // by one.
+	    if (firstBlock == lastBlock) {
+	    	lastBlock++; 
+	    }
 	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
+	    	System.out.println("setting dirtyBitmap for blockID=" + i);
 	    	synchronized(dirtyBitmap) {
 	    		dirtyBitmap.set(i);
 	    	}
@@ -188,6 +211,8 @@ public class BasicLCVDStorage extends FDBStorage {
 	    wr.buf = buffer;
 	    wr.offset = offset;
 	    try {
+	    	//System.out.println("[BasicLCVDStorage] enqueuing WriteRequest for blockID=" 
+	    	//		+ ((int) wr.offset / blockSize));
 			queue.put(wr);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
@@ -196,19 +221,6 @@ public class BasicLCVDStorage extends FDBStorage {
 		return super.write(buffer, offset);
 	}
 
-	public void flushToCloud(byte[] buffer, int blockID) {
-	    try {
-			blockDataStore.put(Long.toString(blockID), buffer);
-			long curEpoch = epochCnt++;
-			byte[] dmBytes = dirtyBitmap.toByteArray();
-			dBmStore.put(Long.toString(curEpoch) + "-bitmap", dmBytes);
-			blockDataStore.put("EpochCount", ByteUtils.longToBytes(curEpoch)); 
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-	}
-	
 	@Override
 	public CompletableFuture<Void> flush() {
 //		// TODO Auto-generated method stub
@@ -239,29 +251,65 @@ public class BasicLCVDStorage extends FDBStorage {
 			this.q = q; 
 		}
 		public void run() {
+			System.out.println("[CloudPackageManager] run entered");
 			Timer timer = new Timer();
 			while (running.get()) { 
 				try {
 					timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
 					WriteRequest wr = q.take();
-					synchronized(writeMap) {
+			    	//System.out.println("[CloudPackageManager] dequeued WriteRequest for blockID=" 
+			    	//		+ ((int) wr.offset / blockSize));
+					//System.err.println("[CloudPackageManager] writeMap lock acquire attempt");
+			    	synchronized(writeMap) {
+						//System.err.println("[CloudPackageManager] writeMap lock acquired");
 						writeMap.put((int) (wr.offset / blockSize), wr.buf);
+						//System.err.println("[CloudPackageManager] writeMap put for blockID=" 
+						//		+ (int) (wr.offset / blockSize));
 					}
+					//System.err.println("[CloudPackageManager] writeMap lock released");
+					
 				} catch (InterruptedException e) { 
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					System.out.println("[CloudPackageManager] Get interrupted");
 				}
 			}
+			System.out.println("[CloudPackageManager] Terminating CloudPackageManager Thread");
 		}
 	}
 	
 	public class CloudFlusher extends TimerTask {
 		public void run() {
+			System.out.println("[CloudFlusher] Entered CloudFlusher run");
+			//System.err.println("[CloudFlusher] writeMap lock acquire attempt");
+			HashMap<Integer, byte[]> writeMapClone = null;
+			BitSet dirtyBitmapClone = null;
 			synchronized(writeMap) {
-				for (Integer i : writeMap.keySet()) {
-					byte[] buf = writeMap.get(i);
-					flushToCloud(buf, i);
+				//System.err.println("[CloudFlusher] writeMap lock acquired");
+				synchronized (dirtyBitmap) {
+					writeMapClone = (HashMap<Integer, byte[]>) writeMap.clone();
+					dirtyBitmapClone = (BitSet) dirtyBitmap.clone();
+					dirtyBitmap.clear();
+				}				
+			}
+			//System.err.println("[CloudFlusher] writeMap lock released");
+			for (Integer i : writeMapClone.keySet()) {
+				byte[] buf = writeMapClone.get(i);
+				try {
+					blockDataStore.put(Integer.toString(i), buf);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
+			}
+			long curEpoch = epochCnt;
+			byte[] dmBytes = dirtyBitmapClone.toByteArray();
+			try {
+				System.out.println("dBmStore put for epoch=" + curEpoch);
+				dBmStore.put(Long.toString(curEpoch) + "-bitmap", dmBytes);
+				blockDataStore.put("EpochCount", ByteUtils.longToBytes(curEpoch));
+				epochCnt++;
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
 			}
 		}
 	}
