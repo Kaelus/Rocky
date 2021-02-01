@@ -245,6 +245,13 @@ public class BasicLCVDStorage extends FDBStorage {
 		return super.usage();
 	}
 	
+	
+	
+	
+	/*
+	 * Periodic Flushing
+	 */
+
 	public class CloudPackageManager implements Runnable {
 		private final BlockingQueue<WriteRequest> q;
 		public CloudPackageManager(BlockingQueue<WriteRequest> q) { 
@@ -315,9 +322,6 @@ public class BasicLCVDStorage extends FDBStorage {
 	}
 
 	
-//	/*
-//	 * Periodic Flushing
-//	 */
 //	class EpochFlusher {
 //
 //		ScheduledExecutorService executorService;
@@ -397,6 +401,10 @@ public class BasicLCVDStorage extends FDBStorage {
 //			System.exit(1);
 //		}
 //	}
-	
+
+
+	/*
+	 * Periodic Prefetching
+	 */
 	
 }
