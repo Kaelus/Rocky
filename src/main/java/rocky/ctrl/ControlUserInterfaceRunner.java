@@ -32,6 +32,7 @@ public class ControlUserInterfaceRunner implements Runnable {
 		synchronized(RockyController.role) {
 			RockyController.role = switchTo;
 		}
+		RockyController.role.notify();
 	}
 	
 	public void run() {

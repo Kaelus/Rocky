@@ -128,7 +128,7 @@ public class RockyController {
 	        }
 	      });
 	    }
-	  }
+	}
 
 	private static void parseRockyControllerConfig(String configFile) {
 		File confFile = new File(configFile);

@@ -8,7 +8,6 @@ import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import rocky.ctrl.cloud.GenericKeyValueStore;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
@@ -32,10 +31,12 @@ public class BasicLCVDStorage extends FDBStorage {
 	public GenericKeyValueStore blockDataStore;
 
 	private Thread cloudPackageManagerThread;
-	private final AtomicBoolean running = new AtomicBoolean(false);
+	//private final AtomicBoolean running = new AtomicBoolean(false);
 	private final BlockingQueue<WriteRequest> queue;
 	public HashMap<Integer, byte[]> writeMap;
 
+	private Thread roleSwitcherThread;
+	
 	public static long epochCnt;
 	
 	class WriteRequest {
@@ -79,7 +80,8 @@ public class BasicLCVDStorage extends FDBStorage {
 		epochCnt = getEpoch();
 		writeMap = new HashMap<Integer, byte[]>();
 		CloudPackageManager cpm = new CloudPackageManager(queue);
-		cloudPackageManagerThread = new Thread(cpm); 
+		cloudPackageManagerThread = new Thread(cpm);
+		roleSwitcherThread = new Thread(new RoleSwitcher());
 	}
 
 	public long getEpoch() {
@@ -113,8 +115,7 @@ public class BasicLCVDStorage extends FDBStorage {
 //			throw new IllegalStateException("Volume " + exportName + " is already leased");
 //		}
 		super.connect();
-		running.set(true);
-		cloudPackageManagerThread.start();
+		roleSwitcherThread.start();
 	}
 
 	@Override
@@ -125,9 +126,14 @@ public class BasicLCVDStorage extends FDBStorage {
 //		      throw new IllegalStateException("Not connected to " + exportName);
 //	    }
 		super.disconnect();
-		running.set(false);
-		System.out.println("interrupting the cloud package manager thread to terminate");
-		cloudPackageManagerThread.interrupt();
+		switchRole(RockyController.role, RockyController.RockyControllerRoleType.None);
+		roleSwitcherThread.interrupt();
+		try {
+			roleSwitcherThread.join();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	@Override
@@ -245,13 +251,111 @@ public class BasicLCVDStorage extends FDBStorage {
 		return super.usage();
 	}
 	
+	/*
+	 * Role switching
+	 */
 	
+	public class RoleSwitcher implements Runnable {
+		public void run() {
+			System.out.println("[RoleSwitcher] entered run");
+			try {
+				while (true) {
+					RockyController.RockyControllerRoleType prevRole = null;
+					synchronized(RockyController.role) {
+						prevRole = RockyController.role;
+					}
+					RockyController.role.wait();
+					RockyController.RockyControllerRoleType newRole = null;
+					synchronized(RockyController.role) {
+						newRole = RockyController.role;
+					}
+					System.out.println("Role switching from " 
+							+ prevRole + " to " + newRole);
+					switchRole(prevRole, newRole);
+				}
+			} catch (Exception e) {
+				
+			}
+		}
+	}
 	
+	public void switchRole(RockyController.RockyControllerRoleType prevRole, 
+			RockyController.RockyControllerRoleType newRole) {
+		if (prevRole.equals(RockyController.RockyControllerRoleType.Owner) 
+				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
+			stopCloudPackageManager();
+			instantCloudFlushing();
+		} else if (prevRole.equals(RockyController.RockyControllerRoleType.None) 
+				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
+			// ToDo
+			
+
+		} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
+				&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
+			// ToDo
+			cloudPackageManagerThread.start();				
+		} else if (prevRole.equals(RockyController.RockyControllerRoleType.None)
+				&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
+			cloudPackageManagerThread.start();				
+		} else if (prevRole.equals(RockyController.RockyControllerRoleType.Owner)
+				&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
+			stopCloudPackageManager();
+			instantCloudFlushing();
+		} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
+				&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
+			
+		} else {
+			System.err.println("ASSERT: unallowed role switching scenario");
+			System.err.println("From=" + prevRole.toString() + " To=" + newRole.toString());
+			System.exit(1);
+		}
+	}
+
+	public void stopRoleSwitcher() {
+		System.out.println("interrupting the role switcher thread to terminate");
+		roleSwitcherThread.interrupt();
+		try {
+			roleSwitcherThread.join();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+
 	
 	/*
 	 * Periodic Flushing
 	 */
 
+	public void instantCloudFlushing() {
+		WriteRequest wr = null;
+		while ((wr = queue.poll()) != null) {
+			synchronized(writeMap) {
+				writeMap.put((int) (wr.offset / blockSize), wr.buf);
+			}
+		}
+		Thread lastFlusherThread = new Thread(new CloudFlusher());
+		lastFlusherThread.start();
+		try {
+			lastFlusherThread.join();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public void stopCloudPackageManager() {
+		System.out.println("interrupting the cloud package manager thread to terminate");
+		cloudPackageManagerThread.interrupt();
+		try {
+			cloudPackageManagerThread.join();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
 	public class CloudPackageManager implements Runnable {
 		private final BlockingQueue<WriteRequest> q;
 		public CloudPackageManager(BlockingQueue<WriteRequest> q) { 
@@ -259,9 +363,9 @@ public class BasicLCVDStorage extends FDBStorage {
 		}
 		public void run() {
 			System.out.println("[CloudPackageManager] run entered");
-			Timer timer = new Timer();
-			while (running.get()) { 
-				try {
+			try {
+				Timer timer = new Timer();
+				while (true) { 
 					timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
 					WriteRequest wr = q.take();
 			    	//System.out.println("[CloudPackageManager] dequeued WriteRequest for blockID=" 
@@ -274,10 +378,9 @@ public class BasicLCVDStorage extends FDBStorage {
 						//		+ (int) (wr.offset / blockSize));
 					}
 					//System.err.println("[CloudPackageManager] writeMap lock released");
-					
-				} catch (InterruptedException e) { 
-					System.out.println("[CloudPackageManager] Get interrupted");
 				}
+			} catch (InterruptedException e) { 
+				System.out.println("[CloudPackageManager] Get interrupted");
 			}
 			System.out.println("[CloudPackageManager] Terminating CloudPackageManager Thread");
 		}
@@ -408,3 +511,4 @@ public class BasicLCVDStorage extends FDBStorage {
 	 */
 	
 }
+
