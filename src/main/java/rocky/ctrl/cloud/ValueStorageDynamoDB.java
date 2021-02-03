@@ -75,7 +75,7 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
         try {
             System.out.println("Attempting to create table; please wait...");
             retTable = dynamoDB.createTable(tableName,
-    					Arrays.asList(new KeySchemaElement("key", KeyType.HASH)), // Partition
+    					Arrays.asList(new KeySchemaElement("key", KeyType.HASH)),	// Partition Key	
     					Arrays.asList(new AttributeDefinition("key", ScalarAttributeType.S)),
     					new ProvisionedThroughput(10L, 10L));
     		retTable.waitForActive();

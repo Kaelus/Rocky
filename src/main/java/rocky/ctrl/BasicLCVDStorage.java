@@ -1,8 +1,12 @@
 package rocky.ctrl;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
@@ -30,14 +34,16 @@ public class BasicLCVDStorage extends FDBStorage {
 	public GenericKeyValueStore dBmStore;
 	public GenericKeyValueStore blockDataStore;
 
-	private Thread cloudPackageManagerThread;
+	Thread cloudPackageManagerThread;
 	//private final AtomicBoolean running = new AtomicBoolean(false);
 	private final BlockingQueue<WriteRequest> queue;
 	public HashMap<Integer, byte[]> writeMap;
 
 	private Thread roleSwitcherThread;
+	public Object prefetchFlush;
 	
 	public static long epochCnt;
+	public static long prefetchedEpoch;
 	
 	class WriteRequest {
 		public byte[] buf;
@@ -78,10 +84,12 @@ public class BasicLCVDStorage extends FDBStorage {
 		presenceBitmap.set(0, numBlock);
 		queue = new LinkedBlockingDeque<WriteRequest>();
 		epochCnt = getEpoch();
+		System.out.println(">>>> epochCn=" + epochCnt);
 		writeMap = new HashMap<Integer, byte[]>();
 		CloudPackageManager cpm = new CloudPackageManager(queue);
 		cloudPackageManagerThread = new Thread(cpm);
 		roleSwitcherThread = new Thread(new RoleSwitcher());
+		roleSwitcherThread.start();
 	}
 
 	public long getEpoch() {
@@ -98,6 +106,9 @@ public class BasicLCVDStorage extends FDBStorage {
 					e1.printStackTrace();
 				}
 			} else {
+				//System.out.println("epochBytes=" + epochBytes.hashCode());
+				//System.out.println("Long.MAX=" + Long.MAX_VALUE);
+				//System.out.println("epochBytes length=" + epochBytes.length);
 				retLong = ByteUtils.bytesToLong(epochBytes);
 			}
 		} catch (IOException e) {
@@ -115,7 +126,7 @@ public class BasicLCVDStorage extends FDBStorage {
 //			throw new IllegalStateException("Volume " + exportName + " is already leased");
 //		}
 		super.connect();
-		roleSwitcherThread.start();
+		//roleSwitcherThread.start();
 	}
 
 	@Override
@@ -126,14 +137,14 @@ public class BasicLCVDStorage extends FDBStorage {
 //		      throw new IllegalStateException("Not connected to " + exportName);
 //	    }
 		super.disconnect();
-		switchRole(RockyController.role, RockyController.RockyControllerRoleType.None);
-		roleSwitcherThread.interrupt();
-		try {
-			roleSwitcherThread.join();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		//switchRole(RockyController.role, RockyController.RockyControllerRoleType.None);
+		//roleSwitcherThread.interrupt();
+		//try {
+		//	roleSwitcherThread.join();
+		//} catch (InterruptedException e) {
+		//	// TODO Auto-generated catch block
+		//	e.printStackTrace();
+		//}
 	}
 
 	@Override
@@ -163,7 +174,7 @@ public class BasicLCVDStorage extends FDBStorage {
 	    if (firstBlock == lastBlock) {
 	    	lastBlock++; 
 	    }
-	    for (int i = (int) firstBlock; i < (int) lastBlock || firstBlock == lastBlock; i++) {
+	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
 	    	byte[] blockData = new byte[blockSize];
 	    	boolean isPresent = false;
 	    	synchronized(presenceBitmap) {
@@ -171,7 +182,11 @@ public class BasicLCVDStorage extends FDBStorage {
 	    	}
 	    	if (isPresent) {
 				super.read(blockData, i * blockSize);
-				System.arraycopy(blockData, 0, buffer, i * blockSize, blockSize);
+				System.out.println("i=" + i);
+				System.out.println("firstBlock=" + firstBlock);
+				System.out.println("blockData length=" + blockData.length);
+				System.out.println("buffer length=" + buffer.length);
+				System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
 			} else {
 				// read from the cloud backend (slow path)
 				try {
@@ -180,7 +195,7 @@ public class BasicLCVDStorage extends FDBStorage {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				System.arraycopy(blockData, 0, buffer, i * blockSize, blockSize);
+				System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
 				super.write(blockData, i * blockSize);
 				super.flush();
 				synchronized(presenceBitmap) {
@@ -264,10 +279,18 @@ public class BasicLCVDStorage extends FDBStorage {
 					synchronized(RockyController.role) {
 						prevRole = RockyController.role;
 					}
+					if (prevRole == null) {
+						System.err.println("ASSERT: RockyController.role should not be initialized to null");
+						System.exit(1);
+					}
 					RockyController.role.wait();
 					RockyController.RockyControllerRoleType newRole = null;
 					synchronized(RockyController.role) {
 						newRole = RockyController.role;
+					}
+					if (newRole == null) {
+						System.err.println("ASSERT: new RockyController.role should not be null");
+						System.exit(1);
 					}
 					System.out.println("Role switching from " 
 							+ prevRole + " to " + newRole);
@@ -287,23 +310,29 @@ public class BasicLCVDStorage extends FDBStorage {
 			instantCloudFlushing();
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.None) 
 				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
-			// ToDo
+			// ToDo: Start Prefetcher
 			
-
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
-			// ToDo
-			cloudPackageManagerThread.start();				
+			cloudPackageManagerThread.start();
+			// ToDo: Start Prefetcher
+			
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.None)
 				&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
-			cloudPackageManagerThread.start();				
+			cloudPackageManagerThread.start();
+			// ToDo: Start Prefetcher
+			
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.Owner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
 			stopCloudPackageManager();
 			instantCloudFlushing();
+			// ToDo: Stop Prefetcher
+			
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
-			
+			stopCloudPackageManager();
+			instantCloudFlushing();
+			// ToDo: Stop Prefetcher
 		} else {
 			System.err.println("ASSERT: unallowed role switching scenario");
 			System.err.println("From=" + prevRole.toString() + " To=" + newRole.toString());
@@ -322,10 +351,116 @@ public class BasicLCVDStorage extends FDBStorage {
 		}
 	}
 	
+	/*
+	 * Periodic Prefetching: Enable for both Owner and NonOwner
+	 */
+	
+	public class Prefetcher implements Runnable {
+		BasicLCVDStorage myStorage = null;
+		public Prefetcher(BasicLCVDStorage storage) {
+			myStorage = storage;
+		}
+		@Override
+		public void run() {
+			// Get status parameters
+			long latestEpoch = -1;
+			long myPrefetchedEpoch = -1;
+			try {
+				byte[] latestEpochBytes = blockDataStore.get("EpochCount");
+				latestEpoch = ByteUtils.bytesToLong(latestEpochBytes);
+				byte[] myPrefetchedEpochBytes = blockDataStore.get("PrefetchedEpoch-" + RockyController.nodeID);
+				if (myPrefetchedEpochBytes == null) {
+					blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(myPrefetchedEpoch));
+				}
+				myPrefetchedEpoch = ByteUtils.bytesToLong(myPrefetchedEpochBytes);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 
+			// Get all epoch bitmaps
+			List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, myPrefetchedEpoch);
+			
+			// Get a list of blockIDs to prefetch
+			HashSet<Integer> blockIDList = getPrefetchBlockIDList(epochBitmapList);
+			
+			// Prefetch loop
+			Iterator<Integer> iter = blockIDList.iterator();
+			int blockID = -1;
+			byte[] blockData = null;
+			while (iter.hasNext()) {
+				blockID = iter.next();
+				try {
+					blockData = blockDataStore.get(String.valueOf(blockID));
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				myStorage.prefetchWrite(blockData, blockID * blockSize);
+				myStorage.prefetchFlush();
+				synchronized(presenceBitmap) {
+					presenceBitmap.set(blockID);
+				}
+			}
+			
+			// Update PrefetchedEpoch-<nodeID> on cloud
+			try {
+				blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(myPrefetchedEpoch));
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+		} 
+	}
+	
+	public HashSet<Integer> getPrefetchBlockIDList(List<BitSet> epochBitmapList) {
+		HashSet<Integer> retSet = null;
+		for (BitSet bs : epochBitmapList) {
+			for (int i = bs.nextSetBit(0); i >= 0; i = bs.nextSetBit(i+1)) {
+				// operate on index i here
+				if (i == Integer.MAX_VALUE) {
+					break; // or (i+1) would overflow
+				}
+				retSet.add(i);
+			}
+		}
+		return retSet;
+	}
+	
+	public void prefetchFlush() {
+		super.flush();		
+	}
+
+	public void prefetchWrite(byte[] blockData, int i) {
+		super.write(blockData, i);		
+	}
+
+	public List<BitSet> fetchNextEpochBitmaps(long latestEpoch, long myPrefetchedEpoch) {
+		List<BitSet> retList = null;
+		byte[] epochBitmap = null;
+		for (int i = (int) (myPrefetchedEpoch + 1); i < latestEpoch; i++) {
+			try {
+				epochBitmap = dBmStore.get(i + "-bitmap");
+				if (epochBitmap == null) {
+					System.err.println("ASSERT: failed to fetch " + i + "-bitmap");
+					System.exit(1);
+				} else {
+					if (retList == null) {
+						retList = new ArrayList<BitSet>();
+					}
+					retList.add(BitSet.valueOf(epochBitmap));
+				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return retList;
+	}
 	
 	/*
-	 * Periodic Flushing
+	 * Periodic Flushing: Only enable for Owner
 	 */
 
 	public void instantCloudFlushing() {
@@ -361,6 +496,7 @@ public class BasicLCVDStorage extends FDBStorage {
 		public CloudPackageManager(BlockingQueue<WriteRequest> q) { 
 			this.q = q; 
 		}
+		@Override
 		public void run() {
 			System.out.println("[CloudPackageManager] run entered");
 			try {
@@ -387,6 +523,7 @@ public class BasicLCVDStorage extends FDBStorage {
 	}
 	
 	public class CloudFlusher extends TimerTask {
+		@Override
 		public void run() {
 			System.out.println("[CloudFlusher] Entered CloudFlusher run");
 			//System.err.println("[CloudFlusher] writeMap lock acquire attempt");

@@ -14,24 +14,29 @@ public class BasicLCVDStorageTest {
 		
 	@Test
 	public void testSimpleReadWrite() throws ExecutionException, InterruptedException {
+		System.out.println("entered testSimpleReadWrite");
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		Storage storage = new BasicLCVDStorage("testing");
 		storage.connect();
-		byte[] buffer = "hello world".getBytes();
+		byte[] buffer = new byte[512];
+		byte[] srcBytes = "hello world".getBytes();
+		System.arraycopy(srcBytes, 0, buffer, 0, srcBytes.length);
+		byte[] origBuffer = buffer.clone();
 		storage.write(buffer, 0);
 		storage.flush();
-		buffer = new byte[buffer.length];
+		buffer = new byte[512];
 		storage.disconnect();
-		Assert.assertNotEquals("hello world".getBytes(), buffer);
+		Assert.assertNotEquals(origBuffer, buffer);
 		storage.connect();
 		storage.read(buffer, 0);
 		storage.disconnect();
-		Assert.assertArrayEquals("hello world".getBytes(), buffer);
-		
+		Assert.assertArrayEquals(origBuffer, buffer);
+		System.out.println("Finishing testSimpleReadWrite");		
 	}
 
 	@Test
 	public void testMultiBlockReadWrite() throws ExecutionException, InterruptedException {
+		System.out.println("entered testMultiBlockReadWrite");
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		Storage storage = new BasicLCVDStorage("testing");
 		storage.connect();
@@ -42,17 +47,19 @@ public class BasicLCVDStorageTest {
 		storage.write(buffer, 0);
 		storage.flush();
 		byte[] bufferClone = buffer.clone();
-		buffer = new byte[buffer.length];
+		buffer = new byte[2048];
 		storage.disconnect();
 		Assert.assertNotEquals(bufferClone, buffer);
 		storage.connect();
 		storage.read(buffer, 0);
 		storage.disconnect();
 		Assert.assertArrayEquals(bufferClone, buffer);
+		System.out.println("Finishing testMultiBlockReadWrite");
 	}
 	
 	@Test
 	public void testGetEpoch() {
+		System.out.println("entered testGetEpoch");
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		BasicLCVDStorage storage = new BasicLCVDStorage("testing");
 		storage.connect();
@@ -67,13 +74,17 @@ public class BasicLCVDStorageTest {
 		}
 		epoch = storage.getEpoch();
 		Assert.assertEquals(999, epoch);
+		System.out.println("Finishing testGetEpoch");
+		storage.disconnect();
 	}
 
 	@Test
 	public void testCloudPackageManagerWriteMapUpdate() {
+		System.out.println("entered testCloudPackageManagerWriteMapUpdate");
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		BasicLCVDStorage storage = new BasicLCVDStorage("testing");
 		storage.connect();
+		storage.cloudPackageManagerThread.start();
 		byte[] buffer = "hello world 0".getBytes();
 		storage.write(buffer, 0);
 		buffer = "hello world 1".getBytes();
@@ -95,14 +106,17 @@ public class BasicLCVDStorageTest {
 		actualBlock = storage.writeMap.get(4);
 		Assert.assertArrayEquals("hello world 4 new".getBytes(), actualBlock);
 		storage.disconnect();
+		System.out.println("Finishing testCloudPackageManagerWriteMapUpdate");
 	}
 	
 	@Test
 	public void testCloudFlusherBlockDataUpdate() {
+		System.out.println("entered testCloudFlusherBlockDataUpdate");
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		RockyController.epochPeriod = 1000;
 		BasicLCVDStorage storage = new BasicLCVDStorage("testing");
 		storage.connect();
+		storage.cloudPackageManagerThread.start();
 		storage.blockDataStore.remove("0");
 		storage.blockDataStore.remove("1");
 		storage.blockDataStore.remove("4");
@@ -128,10 +142,12 @@ public class BasicLCVDStorageTest {
 			e.printStackTrace();
 		}
 		storage.disconnect();
+		System.out.println("Finishing testCloudFlusherBlockDataUpdate");
 	}
 	
 	@Test
 	public void testCloudFlusherDirtyBitmapAndEpochUpdate() {
+		System.out.println("entered testCloudFlusherDirtyBitmapAndEpochUpdate");
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		RockyController.epochPeriod = 1000000;
 		BasicLCVDStorage storage = new BasicLCVDStorage("testing");
@@ -140,7 +156,7 @@ public class BasicLCVDStorageTest {
 		Assert.assertEquals(0, epoch);
 		BasicLCVDStorage.epochCnt = 0;
 		storage.connect();
-		
+		storage.cloudPackageManagerThread.start();		
 		storage.write("hello world 0".getBytes(), 0);
 		storage.write("hello world 1".getBytes(), 512);
 		storage.write("hello world 4".getBytes(), 2048);
@@ -203,5 +219,12 @@ public class BasicLCVDStorageTest {
 		Assert.assertFalse(dBm.get(3));
 		Assert.assertTrue(dBm.get(4));
 		storage.disconnect();
+		System.out.println("Finishing testCloudFlusherDirtyBitmapAndEpochUpdate");
 	}
+	
+	@Test
+	public void testSwitchRole() {
+		
+	}
+	
 }

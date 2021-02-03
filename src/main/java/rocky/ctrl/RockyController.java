@@ -35,7 +35,7 @@ public class RockyController {
 	
 	private static Integer port;
 
-	private static String nodeID;
+	public static String nodeID;
 	
 	public static String lcvdName;
 	

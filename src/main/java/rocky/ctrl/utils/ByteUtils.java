@@ -12,7 +12,12 @@ public class ByteUtils {
     }
 
     public static long bytesToLong(byte[] bytes) {
-        buffer.put(bytes, 0, bytes.length);
+    	//System.out.println("buffer capacity=" + buffer.capacity());
+    	//System.out.println("buffer limit=" + buffer.limit());
+    	//System.out.println("bytes length=" + bytes.length);
+        //System.out.println("buffer remaining=" + buffer.remaining());
+        buffer.position(0);
+    	buffer.put(bytes, 0, bytes.length);
         buffer.flip();//need flip 
         return buffer.getLong();
     }
