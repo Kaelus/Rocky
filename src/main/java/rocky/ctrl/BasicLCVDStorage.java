@@ -1,5 +1,8 @@
 package rocky.ctrl;
 
+import static rocky.ctrl.NBD.NBD_OK_BYTES;
+import static rocky.ctrl.NBD.NBD_REPLY_MAGIC_BYTES;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -39,8 +42,10 @@ public class BasicLCVDStorage extends FDBStorage {
 	private final BlockingQueue<WriteRequest> queue;
 	public HashMap<Integer, byte[]> writeMap;
 
-	private Thread roleSwitcherThread;
+	Thread roleSwitcherThread;
 	public Object prefetchFlush;
+
+	Thread prefetcherThread;
 	
 	public static long epochCnt;
 	public static long prefetchedEpoch;
@@ -84,12 +89,42 @@ public class BasicLCVDStorage extends FDBStorage {
 		presenceBitmap.set(0, numBlock);
 		queue = new LinkedBlockingDeque<WriteRequest>();
 		epochCnt = getEpoch();
+		prefetchedEpoch = getPrefetchedEpoch();
 		System.out.println(">>>> epochCn=" + epochCnt);
 		writeMap = new HashMap<Integer, byte[]>();
 		CloudPackageManager cpm = new CloudPackageManager(queue);
 		cloudPackageManagerThread = new Thread(cpm);
+		Prefetcher prefetcher = new Prefetcher(this);
+		prefetcherThread = new Thread(prefetcher);
 		roleSwitcherThread = new Thread(new RoleSwitcher());
 		roleSwitcherThread.start();
+	}
+
+	public long getPrefetchedEpoch() {
+		long retLong = 0;
+		byte[] epochBytes;
+		try {
+			epochBytes = blockDataStore.get("PrefetchedEpoch-" + RockyController.nodeID);
+			if (epochBytes == null) {
+				System.out.println("PrefetchedEpoch-" + RockyController.nodeID 
+						+ " key is not allocated yet. Allocate it now");
+				try {
+					blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID
+							, ByteUtils.longToBytes(retLong));
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+			} else {
+				//System.out.println("epochBytes=" + epochBytes.hashCode());
+				//System.out.println("Long.MAX=" + Long.MAX_VALUE);
+				//System.out.println("epochBytes length=" + epochBytes.length);
+				retLong = ByteUtils.bytesToLong(epochBytes);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		return retLong;
 	}
 
 	public long getEpoch() {
@@ -296,8 +331,8 @@ public class BasicLCVDStorage extends FDBStorage {
 							+ prevRole + " to " + newRole);
 					switchRole(prevRole, newRole);
 				}
-			} catch (Exception e) {
-				
+			} catch (InterruptedException e) {
+				System.out.println("[RoleSwitcher] Get interrupted");
 			}
 		}
 	}
@@ -310,29 +345,24 @@ public class BasicLCVDStorage extends FDBStorage {
 			instantCloudFlushing();
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.None) 
 				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
-			// ToDo: Start Prefetcher
-			
+			prefetcherThread.start();
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
 			cloudPackageManagerThread.start();
-			// ToDo: Start Prefetcher
-			
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.None)
 				&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
 			cloudPackageManagerThread.start();
-			// ToDo: Start Prefetcher
-			
+			prefetcherThread.start();
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.Owner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
 			stopCloudPackageManager();
 			instantCloudFlushing();
-			// ToDo: Stop Prefetcher
-			
+			stopPrefetcher();
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
 			stopCloudPackageManager();
 			instantCloudFlushing();
-			// ToDo: Stop Prefetcher
+			stopPrefetcher();
 		} else {
 			System.err.println("ASSERT: unallowed role switching scenario");
 			System.err.println("From=" + prevRole.toString() + " To=" + newRole.toString());
@@ -360,67 +390,93 @@ public class BasicLCVDStorage extends FDBStorage {
 		public Prefetcher(BasicLCVDStorage storage) {
 			myStorage = storage;
 		}
+		
 		@Override
 		public void run() {
-			// Get status parameters
-			long latestEpoch = -1;
-			long myPrefetchedEpoch = -1;
 			try {
-				byte[] latestEpochBytes = blockDataStore.get("EpochCount");
-				latestEpoch = ByteUtils.bytesToLong(latestEpochBytes);
-				byte[] myPrefetchedEpochBytes = blockDataStore.get("PrefetchedEpoch-" + RockyController.nodeID);
-				if (myPrefetchedEpochBytes == null) {
-					blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(myPrefetchedEpoch));
+				System.out.println("Running Prefetcher");
+				// Get status parameters
+				long latestEpoch = -1;
+				//long myPrefetchedEpoch = 0;
+				while (true) {
+					try {
+						byte[] latestEpochBytes = blockDataStore.get("EpochCount");
+						latestEpoch = ByteUtils.bytesToLong(latestEpochBytes);
+						System.out.println("latestEpoch=" + latestEpoch);
+						//byte[] myPrefetchedEpochBytes = blockDataStore.get("PrefetchedEpoch-" + RockyController.nodeID);
+						//if (myPrefetchedEpochBytes == null) {
+						//	blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(myPrefetchedEpoch));
+						//}
+						//myPrefetchedEpoch = ByteUtils.bytesToLong(myPrefetchedEpochBytes);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+	
+					// Get all epoch bitmaps
+					//List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, myPrefetchedEpoch);
+					System.out.println("prefetchedEpoch=" + BasicLCVDStorage.prefetchedEpoch);
+					List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, BasicLCVDStorage.prefetchedEpoch);
+					
+					// Get a list of blockIDs to prefetch
+					HashSet<Integer> blockIDList = getPrefetchBlockIDList(epochBitmapList);
+					
+					// Prefetch loop
+					prefetchBlocks(myStorage, blockIDList);
+					
+					// Update PrefetchedEpoch-<nodeID> on cloud and prefetchedEpoch
+					try {
+						blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(latestEpoch));
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					prefetchedEpoch = latestEpoch;
+					Thread.sleep(RockyController.epochPeriod);
 				}
-				myPrefetchedEpoch = ByteUtils.bytesToLong(myPrefetchedEpochBytes);
-			} catch (IOException e) {
+			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
-				e.printStackTrace();
+				System.out.println("[Prefetcher] Get interrupted");
 			}
-
-			// Get all epoch bitmaps
-			List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, myPrefetchedEpoch);
-			
-			// Get a list of blockIDs to prefetch
-			HashSet<Integer> blockIDList = getPrefetchBlockIDList(epochBitmapList);
-			
-			// Prefetch loop
-			Iterator<Integer> iter = blockIDList.iterator();
-			int blockID = -1;
-			byte[] blockData = null;
-			while (iter.hasNext()) {
-				blockID = iter.next();
-				try {
-					blockData = blockDataStore.get(String.valueOf(blockID));
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				myStorage.prefetchWrite(blockData, blockID * blockSize);
-				myStorage.prefetchFlush();
-				synchronized(presenceBitmap) {
-					presenceBitmap.set(blockID);
-				}
-			}
-			
-			// Update PrefetchedEpoch-<nodeID> on cloud
-			try {
-				blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(myPrefetchedEpoch));
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
-		} 
+			System.out.println("Terminating Prefetcher");
+		}
 	}
+
+
+	public void prefetchBlocks(BasicLCVDStorage myStorage, HashSet<Integer> blockIDList) {
+		Iterator<Integer> iter = blockIDList.iterator();
+		int blockID = -1;
+		byte[] blockData = null;
+		while (iter.hasNext()) {
+			blockID = iter.next();
+			try {
+				blockData = blockDataStore.get(String.valueOf(blockID));
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			myStorage.prefetchWrite(blockData, blockID * blockSize);
+			myStorage.prefetchFlush();
+			synchronized(presenceBitmap) {
+				presenceBitmap.set(blockID);
+			}
+		}
+	} 
 	
 	public HashSet<Integer> getPrefetchBlockIDList(List<BitSet> epochBitmapList) {
+		if (epochBitmapList == null) {
+			return null;
+		}
+		
 		HashSet<Integer> retSet = null;
 		for (BitSet bs : epochBitmapList) {
 			for (int i = bs.nextSetBit(0); i >= 0; i = bs.nextSetBit(i+1)) {
 				// operate on index i here
 				if (i == Integer.MAX_VALUE) {
 					break; // or (i+1) would overflow
+				}
+				if (retSet == null) {
+					retSet = new HashSet<Integer>();
 				}
 				retSet.add(i);
 			}
@@ -432,14 +488,24 @@ public class BasicLCVDStorage extends FDBStorage {
 		super.flush();		
 	}
 
-	public void prefetchWrite(byte[] blockData, int i) {
+	public void prefetchWrite(byte[] blockData, long i) {
 		super.write(blockData, i);		
+	}
+	
+	public byte[] localRead(byte[] buffer, long offset) {
+		CompletableFuture<Void> readFuture = super.read(buffer, offset);
+		readFuture.join();
+		return buffer;
+	}
+	
+	public void localRemove() {
+		
 	}
 
 	public List<BitSet> fetchNextEpochBitmaps(long latestEpoch, long myPrefetchedEpoch) {
 		List<BitSet> retList = null;
 		byte[] epochBitmap = null;
-		for (int i = (int) (myPrefetchedEpoch + 1); i < latestEpoch; i++) {
+		for (int i = (int) (myPrefetchedEpoch + 1); i <= latestEpoch; i++) {
 			try {
 				epochBitmap = dBmStore.get(i + "-bitmap");
 				if (epochBitmap == null) {
@@ -457,6 +523,17 @@ public class BasicLCVDStorage extends FDBStorage {
 			}
 		}
 		return retList;
+	}
+	
+	public void stopPrefetcher() {
+		System.out.println("interrupting the prefetcher thread to terminate");
+		prefetcherThread.interrupt();
+		try {
+			prefetcherThread.join();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	/*
@@ -547,7 +624,7 @@ public class BasicLCVDStorage extends FDBStorage {
 					e.printStackTrace();
 				}
 			}
-			long curEpoch = epochCnt;
+			long curEpoch = epochCnt + 1;
 			byte[] dmBytes = dirtyBitmapClone.toByteArray();
 			try {
 				System.out.println("dBmStore put for epoch=" + curEpoch);
