@@ -1,6 +1,7 @@
 package rocky.ctrl;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 
 public class ControlUserInterfaceRunner implements Runnable {
@@ -12,27 +13,55 @@ public class ControlUserInterfaceRunner implements Runnable {
 	private final int CMD_ROLE_SWITCH = 1;
 	private final int CMD_QUIT = 2;
 	
-	public ControlUserInterfaceRunner () {
-		
+	Thread roleSwitcherThread;
+	
+	public ControlUserInterfaceRunner (Thread rsThread) {
+		roleSwitcherThread = rsThread;
 	}
 
-	protected void roleSwitch() {
+	protected void cmdRoleSwitch() {
 		RockyController.RockyControllerRoleType curRole = null;
 		synchronized(RockyController.role) {
 			curRole = RockyController.role;
 		}
 		System.out.println("role switching.. current role=" + curRole);
+		BufferedReader br = new BufferedReader(new InputStreamReader(
+				System.in));
+		System.out.println("[" + loggerID + "] To which role, "
+				+ "do you want to switch to?\n"
+				+ "[1] None\n"
+				+ "[2] NonOwner\n"
+				+ "[3] Owner\n");
+		String input = null;
+		try {
+			input = br.readLine();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		invokeRoleSwitching(input);
+	}
+	
+	public void invokeRoleSwitching(String input) {
 		RockyController.RockyControllerRoleType switchTo = null;
-		if (curRole.equals(RockyController.RockyControllerRoleType.NonOwner)
-				|| curRole.equals(RockyController.RockyControllerRoleType.None)) {
-			switchTo = RockyController.RockyControllerRoleType.Owner; 
-		} else {
+		switch(Integer.parseInt(input)) {
+		case 1:
+			switchTo = RockyController.RockyControllerRoleType.None;
+			break;
+		case 2:
 			switchTo = RockyController.RockyControllerRoleType.NonOwner;
+			break;
+		case 3:
+			switchTo = RockyController.RockyControllerRoleType.Owner;
+			break;
+		default:
+			break;
 		}
-		synchronized(RockyController.role) {
+		//synchronized(RockyController.role) {
+		synchronized(roleSwitcherThread) {
 			RockyController.role = switchTo;
-		}
-		RockyController.role.notify();
+			roleSwitcherThread.notify();
+		}	
 	}
 	
 	public void run() {
@@ -50,7 +79,7 @@ public class ControlUserInterfaceRunner implements Runnable {
 					System.out.println("[" + loggerID + "] cmd=" + cmd); 
 					switch (cmd) {
 					case CMD_ROLE_SWITCH:
-						roleSwitch();
+						cmdRoleSwitch();
 						break;
 					case CMD_QUIT:
 						quitFlag = true;

@@ -1,8 +1,5 @@
 package rocky.ctrl;
 
-import static rocky.ctrl.NBD.NBD_OK_BYTES;
-import static rocky.ctrl.NBD.NBD_REPLY_MAGIC_BYTES;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -16,6 +13,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import rocky.ctrl.RockyController.RockyControllerRoleType;
 import rocky.ctrl.cloud.GenericKeyValueStore;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
 import rocky.ctrl.utils.ByteUtils;
@@ -44,8 +42,13 @@ public class BasicLCVDStorage extends FDBStorage {
 
 	Thread roleSwitcherThread;
 	public Object prefetchFlush;
-
+	
+	public static boolean roleSwitchFlag;
+	
 	Thread prefetcherThread;
+	
+	ControlUserInterfaceRunner cui;
+	Thread controlUIThread;
 	
 	public static long epochCnt;
 	public static long prefetchedEpoch;
@@ -96,8 +99,13 @@ public class BasicLCVDStorage extends FDBStorage {
 		cloudPackageManagerThread = new Thread(cpm);
 		Prefetcher prefetcher = new Prefetcher(this);
 		prefetcherThread = new Thread(prefetcher);
+		RockyController.role = RockyControllerRoleType.None;
+		roleSwitchFlag = false;
 		roleSwitcherThread = new Thread(new RoleSwitcher());
 		roleSwitcherThread.start();
+		cui = new ControlUserInterfaceRunner(roleSwitcherThread);
+		controlUIThread = new Thread();
+		controlUIThread.start();
 	}
 
 	public long getPrefetchedEpoch() {
@@ -306,21 +314,25 @@ public class BasicLCVDStorage extends FDBStorage {
 	 */
 	
 	public class RoleSwitcher implements Runnable {
+
+		@Override
 		public void run() {
 			System.out.println("[RoleSwitcher] entered run");
 			try {
 				while (true) {
 					RockyController.RockyControllerRoleType prevRole = null;
-					synchronized(RockyController.role) {
-						prevRole = RockyController.role;
-					}
-					if (prevRole == null) {
-						System.err.println("ASSERT: RockyController.role should not be initialized to null");
-						System.exit(1);
-					}
-					RockyController.role.wait();
 					RockyController.RockyControllerRoleType newRole = null;
-					synchronized(RockyController.role) {
+					//synchronized(RockyController.role) {
+					synchronized(roleSwitcherThread) {
+						prevRole = RockyController.role;
+						if (prevRole == null) {
+							System.err.println("ASSERT: RockyController.role should not be initialized to null");
+							System.exit(1);
+						}
+						while (RockyController.role.equals(prevRole)) {
+							//RockyController.role.wait();
+							roleSwitcherThread.wait();
+						}
 						newRole = RockyController.role;
 					}
 					if (newRole == null) {
@@ -337,31 +349,31 @@ public class BasicLCVDStorage extends FDBStorage {
 		}
 	}
 	
+	
+	
+	/**
+	 *  State change and activated threads:
+	 *  
+	 *     None    -->    NonOwner    <-->        Owner
+	 *  ---------------------------------------------------------
+	 *  RoleSwitcher	RoleSwitcher	       RoleSwitcher
+	 *  				 Prefetcher             Prefetcher
+	 *                                       CloudPackageManager
+	 */
 	public void switchRole(RockyController.RockyControllerRoleType prevRole, 
 			RockyController.RockyControllerRoleType newRole) {
-		if (prevRole.equals(RockyController.RockyControllerRoleType.Owner) 
-				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
-			stopCloudPackageManager();
-			instantCloudFlushing();
-		} else if (prevRole.equals(RockyController.RockyControllerRoleType.None) 
+		if (prevRole.equals(RockyController.RockyControllerRoleType.None) 
 				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
 			prefetcherThread.start();
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
 			cloudPackageManagerThread.start();
-		} else if (prevRole.equals(RockyController.RockyControllerRoleType.None)
-				&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
-			cloudPackageManagerThread.start();
-			prefetcherThread.start();
-		} else if (prevRole.equals(RockyController.RockyControllerRoleType.Owner)
-				&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
+		} else if (prevRole.equals(RockyController.RockyControllerRoleType.Owner) 
+				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
 			stopCloudPackageManager();
 			instantCloudFlushing();
-			stopPrefetcher();
 		} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
-			stopCloudPackageManager();
-			instantCloudFlushing();
 			stopPrefetcher();
 		} else {
 			System.err.println("ASSERT: unallowed role switching scenario");

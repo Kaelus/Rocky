@@ -12,6 +12,7 @@ import org.junit.Test;
 
 import rocky.ctrl.BasicLCVDStorage.CloudFlusher;
 import rocky.ctrl.BasicLCVDStorage.Prefetcher;
+import rocky.ctrl.RockyController.RockyControllerRoleType;
 import rocky.ctrl.utils.ByteUtils;
 
 public class BasicLCVDStorageTest {
@@ -643,4 +644,49 @@ public class BasicLCVDStorageTest {
 		storage.disconnect();
 	}
 	
+	@Test
+	public void testRoleSwitching() {
+		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
+		RockyController.epochPeriod = 1000000;
+		BasicLCVDStorage storage = new BasicLCVDStorage("testing");
+		storage.connect();
+		
+		RockyControllerRoleType curRole = null;
+		synchronized(storage.roleSwitcherThread) {
+			curRole = RockyController.role;
+		}
+		Assert.assertEquals(RockyControllerRoleType.None, curRole);
+		
+		// None to NonOwner
+		storage.cui.invokeRoleSwitching("2");
+		synchronized(storage.roleSwitcherThread) {
+			curRole = RockyController.role;
+		}
+		Assert.assertEquals(RockyControllerRoleType.NonOwner, curRole);
+		
+		// NonOwner to Owner
+		storage.cui.invokeRoleSwitching("3");
+		synchronized(storage.roleSwitcherThread) {
+			curRole = RockyController.role;
+		}
+		Assert.assertEquals(RockyControllerRoleType.Owner, curRole);
+		
+		// Owner to NonOwner
+		storage.cui.invokeRoleSwitching("2");
+		synchronized(storage.roleSwitcherThread) {
+			curRole = RockyController.role;
+		}
+		Assert.assertEquals(RockyControllerRoleType.NonOwner, curRole);
+
+		
+		// NonOwner to None
+		storage.cui.invokeRoleSwitching("1");
+		synchronized(storage.roleSwitcherThread) {
+			curRole = RockyController.role;
+		}
+		Assert.assertEquals(RockyControllerRoleType.None, curRole);
+		
+		storage.disconnect();
+	}
+
 }
