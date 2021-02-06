@@ -182,6 +182,14 @@ public class RockyController {
 		    		   System.err.println("Error: Cannot support Unknown backendStorageType");
 		    		   System.exit(1);
 		    	   }
+		       } else if (line.startsWith("epochPeriod")) {
+		    	   String[] tokens = line.split("=");
+		    	   String epochPeriodStr = tokens[1];
+		    	   epochPeriod = Integer.parseInt(epochPeriodStr);
+		       } else if (line.startsWith("prefetchPeriod")) {
+		    	   String[] tokens = line.split("=");
+		    	   String prefetchPeriodStr = tokens[1];
+		    	   prefetchPeriod = Integer.parseInt(prefetchPeriodStr);
 		       }
 		    }
 		} catch (FileNotFoundException e) {

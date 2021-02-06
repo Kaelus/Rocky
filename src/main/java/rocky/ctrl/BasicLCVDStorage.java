@@ -93,7 +93,7 @@ public class BasicLCVDStorage extends FDBStorage {
 		queue = new LinkedBlockingDeque<WriteRequest>();
 		epochCnt = getEpoch();
 		prefetchedEpoch = getPrefetchedEpoch();
-		System.out.println(">>>> epochCn=" + epochCnt);
+		//System.out.println(">>>> epochCn=" + epochCnt);
 		writeMap = new HashMap<Integer, byte[]>();
 		CloudPackageManager cpm = new CloudPackageManager(queue);
 		cloudPackageManagerThread = new Thread(cpm);
@@ -104,7 +104,7 @@ public class BasicLCVDStorage extends FDBStorage {
 		roleSwitcherThread = new Thread(new RoleSwitcher());
 		roleSwitcherThread.start();
 		cui = new ControlUserInterfaceRunner(roleSwitcherThread);
-		controlUIThread = new Thread();
+		controlUIThread = new Thread(cui);
 		controlUIThread.start();
 	}
 
@@ -206,6 +206,15 @@ public class BasicLCVDStorage extends FDBStorage {
 //		
 //		return null;
 		
+		synchronized(roleSwitcherThread) {
+			if (!(RockyController.role.equals(RockyControllerRoleType.Owner)
+					|| RockyController.role.equals(RockyControllerRoleType.NonOwner))) {
+				System.err.println("ASSERT: read cannot be served by None role");
+				System.err.println("currently, my role=" + RockyController.role);
+				return null;
+			}
+		}
+		
 		long firstBlock = offset / blockSize;
 	    int length = buffer.length;
 	    long lastBlock = (offset + length) / blockSize;
@@ -225,10 +234,10 @@ public class BasicLCVDStorage extends FDBStorage {
 	    	}
 	    	if (isPresent) {
 				super.read(blockData, i * blockSize);
-				System.out.println("i=" + i);
-				System.out.println("firstBlock=" + firstBlock);
-				System.out.println("blockData length=" + blockData.length);
-				System.out.println("buffer length=" + buffer.length);
+				//System.out.println("i=" + i);
+				//System.out.println("firstBlock=" + firstBlock);
+				//System.out.println("blockData length=" + blockData.length);
+				//System.out.println("buffer length=" + buffer.length);
 				System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
 			} else {
 				// read from the cloud backend (slow path)
@@ -253,6 +262,14 @@ public class BasicLCVDStorage extends FDBStorage {
 	public CompletableFuture<Void> write(byte[] buffer, long offset) {
 //		// TODO Auto-generated method stub
 //		return null;
+		
+		synchronized(roleSwitcherThread) {
+			if (!RockyController.role.equals(RockyControllerRoleType.Owner)) {
+				System.err.println("ASSERT: write can be served only by the Owner");
+				System.err.println("currently, my role=" + RockyController.role);
+				return null;
+			}
+		}
 		
 		long firstBlock = offset / blockSize;
 		int length = buffer.length;
@@ -290,6 +307,14 @@ public class BasicLCVDStorage extends FDBStorage {
 //		// TODO Auto-generated method stub
 //		return null;
 
+		synchronized(roleSwitcherThread) {
+			if (!RockyController.role.equals(RockyControllerRoleType.Owner)) {
+				System.err.println("ASSERT: flush can be served only by the Owner");
+				System.err.println("currently, my role=" + RockyController.role);
+				return null;
+			}
+		}
+		
 		return super.flush();
 	}
 
@@ -444,7 +469,7 @@ public class BasicLCVDStorage extends FDBStorage {
 						e.printStackTrace();
 					}
 					prefetchedEpoch = latestEpoch;
-					Thread.sleep(RockyController.epochPeriod);
+					Thread.sleep(RockyController.prefetchPeriod);
 				}
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block

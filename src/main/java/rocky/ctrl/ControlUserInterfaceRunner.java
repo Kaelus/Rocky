@@ -43,29 +43,56 @@ public class ControlUserInterfaceRunner implements Runnable {
 	}
 	
 	public void invokeRoleSwitching(String input) {
-		RockyController.RockyControllerRoleType switchTo = null;
+		RockyController.RockyControllerRoleType newRole = null;
 		switch(Integer.parseInt(input)) {
 		case 1:
-			switchTo = RockyController.RockyControllerRoleType.None;
+			newRole = RockyController.RockyControllerRoleType.None;
 			break;
 		case 2:
-			switchTo = RockyController.RockyControllerRoleType.NonOwner;
+			newRole = RockyController.RockyControllerRoleType.NonOwner;
 			break;
 		case 3:
-			switchTo = RockyController.RockyControllerRoleType.Owner;
+			newRole = RockyController.RockyControllerRoleType.Owner;
 			break;
 		default:
 			break;
 		}
-		//synchronized(RockyController.role) {
+		
+		// Check assertion
+		RockyController.RockyControllerRoleType prevRole = null;
 		synchronized(roleSwitcherThread) {
-			RockyController.role = switchTo;
-			roleSwitcherThread.notify();
-		}	
+			prevRole = RockyController.role;
+		}
+		boolean fromNoneToOwner = 
+				prevRole.equals(RockyController.RockyControllerRoleType.None)
+				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner);
+		boolean fromNoneOwnerToOwner = 
+				prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
+				&& newRole.equals(RockyController.RockyControllerRoleType.Owner);
+		boolean fromOwnerToNoneOwner =
+				prevRole.equals(RockyController.RockyControllerRoleType.Owner) 
+				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner);
+		boolean fromNoneOwnerToNone = 
+				prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
+				&& newRole.equals(RockyController.RockyControllerRoleType.None);
+		if (!(fromNoneToOwner || fromNoneOwnerToOwner 
+				|| fromOwnerToNoneOwner || fromNoneOwnerToNone)) {
+			System.err.println("ASSERT: unallowed role switching scenario");
+			System.err.println("From=" + prevRole.toString() + " To=" + newRole.toString());
+			System.err.println("We will ignore the role switching request");
+		} else {
+			//synchronized(RockyController.role) {
+			synchronized(roleSwitcherThread) {
+				RockyController.role = newRole;
+				roleSwitcherThread.notify();
+			}	
+		}
 	}
 	
+	@Override
 	public void run() {
 		try {
+			System.out.println("[RoleSwitcher] entered run");
 			BufferedReader br = new BufferedReader(new InputStreamReader(
 					System.in));
 			String input;

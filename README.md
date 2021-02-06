@@ -65,13 +65,21 @@ Use it at your discretion after setting port and lcvdName accordingly.
 Those configuration parameters should be assigned with a unique value for
 each rocky instance.
 
-For example, suppose port=10810 and lcvdName=testing2.
-Also, say /dev/nbd1 is the Rocky device driver instance to use.
+It's good idea to copy and paste the conf/rocky.conf in another directory
+for each Rocky instance to run. For instance, we may have two files under
+the directory run: run/rocky.conf.1 and run/rocky.conf.2
+We should modify those configuration files accorinngly.
 
-First, run the rocky instance with the correct configuration file path name.
-(e.g. run/rocky.conf).
-$ java -jar `pwd`/build/libs/rocky-code-all-1.0.jar rocky.ctrl.RockyController run/rocky.conf
+run/rocky.conf.1 sets port=10811 and lcvdName=testing1 and the first Rocky
+instance will use /dev/nbd1 as the Rocky device driver.
+Then, execute following commands:
+# Run a Rocky instance with the correct configuration file path name.
+$ java -jar `pwd`/build/libs/rocky-code-all-1.0.jar rocky.ctrl.RockyController run/rocky.conf.1
+# Run nbd-client for the Rocky instance with correct parameters.
+$ sudo nbd-client -N testing1 localhost 10811 /dev/nbd1
 
-Then, run nbd-client for the second rocky instance with correct parameters.
-$ sudo nbd-client -N testing2 localhost 10810 /dev/nbd1
+Likewise, suppose run/rocky.conf.2 sets port=10812 and lcvdName=testing2
+Also, say /dev/nbd2 is the Rocky device driver instance to use.
+$ java -jar `pwd`/build/libs/rocky-code-all-1.0.jar rocky.ctrl.RockyController run/rocky.conf.2
+$ sudo nbd-client -N testing2 localhost 10812 /dev/nbd2
 
