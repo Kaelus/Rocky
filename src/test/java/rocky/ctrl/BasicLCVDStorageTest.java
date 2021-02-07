@@ -22,6 +22,7 @@ public class BasicLCVDStorageTest {
 		System.out.println("entered testSimpleReadWrite");
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		Storage storage = new BasicLCVDStorage("testing");
+		RockyController.role = RockyControllerRoleType.Owner;
 		storage.connect();
 		byte[] buffer = new byte[512];
 		byte[] srcBytes = "hello world".getBytes();
@@ -44,6 +45,7 @@ public class BasicLCVDStorageTest {
 		System.out.println("entered testMultiBlockReadWrite");
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		Storage storage = new BasicLCVDStorage("testing");
+		RockyController.role = RockyControllerRoleType.Owner;
 		storage.connect();
 		byte[] buffer = new byte[2048]; 
 		for (int i = 0; i < (2048 / 8); i++) {
@@ -88,6 +90,7 @@ public class BasicLCVDStorageTest {
 		System.out.println("entered testCloudPackageManagerWriteMapUpdate");
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		BasicLCVDStorage storage = new BasicLCVDStorage("testing");
+		RockyController.role = RockyControllerRoleType.Owner;
 		storage.connect();
 		storage.cloudPackageManagerThread.start();
 		byte[] buffer = "hello world 0".getBytes();
@@ -120,6 +123,7 @@ public class BasicLCVDStorageTest {
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		RockyController.epochPeriod = 1000;
 		BasicLCVDStorage storage = new BasicLCVDStorage("testing");
+		RockyController.role = RockyControllerRoleType.Owner;
 		storage.connect();
 		storage.cloudPackageManagerThread.start();
 		storage.blockDataStore.remove("0");
@@ -156,6 +160,7 @@ public class BasicLCVDStorageTest {
 		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
 		RockyController.epochPeriod = 1000000;
 		BasicLCVDStorage storage = new BasicLCVDStorage("testing");
+		RockyController.role = RockyControllerRoleType.Owner;
 		storage.blockDataStore.remove("EpochCount");
 		long epoch = storage.getEpoch();
 		Assert.assertEquals(0, epoch);
@@ -199,7 +204,7 @@ public class BasicLCVDStorageTest {
 		
 		byte[] dBmBytes = null;
 		try {
-			dBmBytes = storage.dBmStore.get("0-bitmap");
+			dBmBytes = storage.dBmStore.get("1-bitmap");
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -212,7 +217,7 @@ public class BasicLCVDStorageTest {
 		Assert.assertTrue(dBm.get(4));
 		
 		try {
-			dBmBytes = storage.dBmStore.get("1-bitmap");
+			dBmBytes = storage.dBmStore.get("2-bitmap");
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -233,6 +238,7 @@ public class BasicLCVDStorageTest {
 		RockyController.epochPeriod = 1000000;
 		RockyController.nodeID = "tn1";
 		BasicLCVDStorage storage = new BasicLCVDStorage("testing");
+		RockyController.role = RockyControllerRoleType.Owner;
 		storage.blockDataStore.remove("EpochCount");
 		storage.blockDataStore.remove("PrefetchedEpoch-" + RockyController.nodeID);
 		long epoch = storage.getEpoch();
@@ -427,7 +433,6 @@ public class BasicLCVDStorageTest {
 		expectedList.add(5);
 		Assert.assertEquals(expectedList, blockIDList);
 		
-		storage.disconnect();
 	}
 	
 	@Test
@@ -521,7 +526,9 @@ public class BasicLCVDStorageTest {
 		storage.connect();
 		storage.blockDataStore.remove("EpochCount");
 		storage.blockDataStore.remove("PrefetchedEpoch-" + RockyController.nodeID);
-				
+		storage.epochCnt = 0;
+		storage.prefetchedEpoch = 0;
+		
 		// Populate the local storage
 		byte[] buffer1 = new byte[512];
 		byte[] buffer2 = new byte[512];

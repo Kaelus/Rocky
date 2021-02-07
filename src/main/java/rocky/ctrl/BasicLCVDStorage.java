@@ -128,6 +128,7 @@ public class BasicLCVDStorage extends FDBStorage {
 				//System.out.println("Long.MAX=" + Long.MAX_VALUE);
 				//System.out.println("epochBytes length=" + epochBytes.length);
 				retLong = ByteUtils.bytesToLong(epochBytes);
+				System.out.println("getPrefetchedEpoch returns=" + retLong);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -206,27 +207,35 @@ public class BasicLCVDStorage extends FDBStorage {
 //		
 //		return null;
 		
-		synchronized(roleSwitcherThread) {
-			if (!(RockyController.role.equals(RockyControllerRoleType.Owner)
-					|| RockyController.role.equals(RockyControllerRoleType.NonOwner))) {
-				System.err.println("ASSERT: read cannot be served by None role");
-				System.err.println("currently, my role=" + RockyController.role);
-				return null;
-			}
-		}
+//		synchronized(roleSwitcherThread) {
+//			if (!(RockyController.role.equals(RockyControllerRoleType.Owner)
+//					|| RockyController.role.equals(RockyControllerRoleType.NonOwner))) {
+//				System.err.println("ASSERT: read cannot be served by None role");
+//				System.err.println("currently, my role=" + RockyController.role);
+//				return null;
+//			}
+//		}
 		
 		long firstBlock = offset / blockSize;
 	    int length = buffer.length;
-	    long lastBlock = (offset + length) / blockSize;
-	    // we assume that buffer size to be blockSize when it is used
-	    // as a block device properly. O.W. it can be smaller than that.
-	    // To make it compatible with the original intention, when 
-	    // we get buffer smaller than blockSize, we increment the loastBlock
-	    // by one.
-	    if (firstBlock == lastBlock) {
-	    	lastBlock++; 
+	    long lastBlock = 0;
+	    if (length % blockSize == 0) {
+	    	lastBlock = (offset + length) / blockSize - 1;
+	    } else {
+	    	lastBlock = (offset + length) / blockSize;
 	    }
-	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
+	    //long lastBlock = (offset + length) / blockSize;
+	    
+//	    // we assume that buffer size to be blockSize when it is used
+//	    // as a block device properly. O.W. it can be smaller than that.
+//	    // To make it compatible with the original intention, when 
+//	    // we get buffer smaller than blockSize, we increment the loastBlock
+//	    // by one.
+//	    if (firstBlock == lastBlock) {
+//	    	lastBlock++; 
+//	    }
+//	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
+	    for (int i = (int) firstBlock; i <= (int) lastBlock; i++) {
 	    	byte[] blockData = new byte[blockSize];
 	    	boolean isPresent = false;
 	    	synchronized(presenceBitmap) {
@@ -271,34 +280,66 @@ public class BasicLCVDStorage extends FDBStorage {
 			}
 		}
 		
+		System.out.println("write entered. buffer size=" + buffer.length);
+		System.out.println("offset=" + offset);
+		
 		long firstBlock = offset / blockSize;
 		int length = buffer.length;
-	    long lastBlock = (offset + length) / blockSize;
-	    // we assume that buffer size to be blockSize when it is used
-	    // as a block device properly. O.W. it can be smaller than that.
-	    // To make it compatible with the original intention, when 
-	    // we get buffer smaller than blockSize, we increment the loastBlock
-	    // by one.
-	    if (firstBlock == lastBlock) {
-	    	lastBlock++; 
+	    long lastBlock = 0;
+	    if (length % blockSize == 0) {
+	    	lastBlock = (offset + length) / blockSize - 1;
+	    } else {
+	    	lastBlock = (offset + length) / blockSize;
 	    }
-	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
+	    //long lastBlock = (offset + length) / blockSize;
+	    
+	    System.out.println("firstBlock=" + firstBlock + " lastBlock=" + lastBlock + " length=" + length);
+	    
+//	    // we assume that buffer size to be blockSize when it is used
+//	    // as a block device properly. O.W. it can be smaller than that.
+//	    // To make it compatible with the original intention, when 
+//	    // we get buffer smaller than blockSize, we increment the loastBlock
+//	    // by one.
+//	    if (firstBlock == lastBlock) {
+//	    	lastBlock++; 
+//	    }
+//	    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
+    	for (int i = (int) firstBlock; i <= (int) lastBlock; i++) {
 	    	System.out.println("setting dirtyBitmap for blockID=" + i);
 	    	synchronized(dirtyBitmap) {
 	    		dirtyBitmap.set(i);
 	    	}
+	    	WriteRequest wr = new WriteRequest();
+	    	int copySize = 0;
+	    	if (i == lastBlock) {
+	    		System.out.println("copySize first");
+	    		int residual = buffer.length % blockSize;
+	    		if (residual == 0) {
+	    			copySize = blockSize;
+	    		} else {
+	    			copySize = residual;
+	    		}
+	    	} else {
+	    		System.out.println("copySize second");
+	    		copySize = blockSize;
+	    	}
+	    	byte[] copyBuf = new byte[copySize];
+	    	System.out.println("copySize=" + copySize);
+	    	int bufferStartOffset = (int) ((i - firstBlock) * blockSize);
+	    	System.out.println("bufferStartOffset=" + bufferStartOffset + " i=" + i + " firstBlock=" + firstBlock + " blockSize=" + blockSize);
+	    	System.arraycopy(buffer, (int) ((i - firstBlock) * blockSize), copyBuf, 0, copySize);
+	    	wr.buf = copyBuf;
+		    wr.offset = offset;
+		    try {
+		    	//System.out.println("[BasicLCVDStorage] enqueuing WriteRequest for blockID=" 
+		    	//		+ ((int) wr.offset / blockSize));
+				queue.put(wr);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 	    }
-	    WriteRequest wr = new WriteRequest();
-	    wr.buf = buffer;
-	    wr.offset = offset;
-	    try {
-	    	//System.out.println("[BasicLCVDStorage] enqueuing WriteRequest for blockID=" 
-	    	//		+ ((int) wr.offset / blockSize));
-			queue.put(wr);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+	    
 		return super.write(buffer, offset);
 	}
 
@@ -438,6 +479,10 @@ public class BasicLCVDStorage extends FDBStorage {
 				while (true) {
 					try {
 						byte[] latestEpochBytes = blockDataStore.get("EpochCount");
+						if (latestEpochBytes == null) {
+							System.out.println("Prefetcher thread gets interrupted, exit the main loop here");
+							break;
+						}
 						latestEpoch = ByteUtils.bytesToLong(latestEpochBytes);
 						System.out.println("latestEpoch=" + latestEpoch);
 						//byte[] myPrefetchedEpochBytes = blockDataStore.get("PrefetchedEpoch-" + RockyController.nodeID);
@@ -449,26 +494,33 @@ public class BasicLCVDStorage extends FDBStorage {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-	
-					// Get all epoch bitmaps
-					//List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, myPrefetchedEpoch);
+
 					System.out.println("prefetchedEpoch=" + BasicLCVDStorage.prefetchedEpoch);
-					List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, BasicLCVDStorage.prefetchedEpoch);
-					
-					// Get a list of blockIDs to prefetch
-					HashSet<Integer> blockIDList = getPrefetchBlockIDList(epochBitmapList);
-					
-					// Prefetch loop
-					prefetchBlocks(myStorage, blockIDList);
-					
-					// Update PrefetchedEpoch-<nodeID> on cloud and prefetchedEpoch
-					try {
-						blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(latestEpoch));
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+					System.out.println("epochCnt=" + epochCnt);
+					if (latestEpoch > epochCnt) { // if I am Owner, I don't need to prefetch as I am the most up-to-date node
+						if (latestEpoch > BasicLCVDStorage.prefetchedEpoch) { // if I am nonOwner with nothing more to prefetch, I don't prefetch
+							// Get all epoch bitmaps
+							//List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, myPrefetchedEpoch);
+							List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, BasicLCVDStorage.prefetchedEpoch);
+							
+							// Get a list of blockIDs to prefetch
+							HashSet<Integer> blockIDList = getPrefetchBlockIDList(epochBitmapList);
+						
+							if (blockIDList != null) { // if blockIDList is null, we don't need to prefetch anything
+								// Prefetch loop
+								prefetchBlocks(myStorage, blockIDList);
+								
+								// Update PrefetchedEpoch-<nodeID> on cloud and prefetchedEpoch
+								try {
+									blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(latestEpoch));
+								} catch (IOException e) {
+									// TODO Auto-generated catch block
+									e.printStackTrace();
+								}
+								prefetchedEpoch = latestEpoch;
+							}
+						}
 					}
-					prefetchedEpoch = latestEpoch;
 					Thread.sleep(RockyController.prefetchPeriod);
 				}
 			} catch (InterruptedException e) {
@@ -615,11 +667,11 @@ public class BasicLCVDStorage extends FDBStorage {
 			System.out.println("[CloudPackageManager] run entered");
 			try {
 				Timer timer = new Timer();
+				timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
 				while (true) { 
-					timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
 					WriteRequest wr = q.take();
-			    	//System.out.println("[CloudPackageManager] dequeued WriteRequest for blockID=" 
-			    	//		+ ((int) wr.offset / blockSize));
+			    	System.out.println("[CloudPackageManager] dequeued WriteRequest for blockID=" 
+			    			+ ((int) wr.offset / blockSize));
 					//System.err.println("[CloudPackageManager] writeMap lock acquire attempt");
 			    	synchronized(writeMap) {
 						//System.err.println("[CloudPackageManager] writeMap lock acquired");
@@ -672,6 +724,8 @@ public class BasicLCVDStorage extends FDBStorage {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			Timer timer = new Timer();
+			timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
 		}
 	}
 
