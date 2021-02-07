@@ -216,6 +216,9 @@ public class BasicLCVDStorage extends FDBStorage {
 //			}
 //		}
 		
+		System.out.println("read entered. buffer size=" + buffer.length);
+		System.out.println("offset=" + offset);
+		
 		long firstBlock = offset / blockSize;
 	    int length = buffer.length;
 	    long lastBlock = 0;
@@ -225,6 +228,8 @@ public class BasicLCVDStorage extends FDBStorage {
 	    	lastBlock = (offset + length) / blockSize;
 	    }
 	    //long lastBlock = (offset + length) / blockSize;
+	    
+	    System.out.println("firstBlock=" + firstBlock + " lastBlock=" + lastBlock + " length=" + length);
 	    
 //	    // we assume that buffer size to be blockSize when it is used
 //	    // as a block device properly. O.W. it can be smaller than that.
@@ -242,6 +247,7 @@ public class BasicLCVDStorage extends FDBStorage {
 	    		isPresent = presenceBitmap.get(i);
 	    	}
 	    	if (isPresent) {
+	    		System.out.println("blockID=" + i + " is locally present");
 				super.read(blockData, i * blockSize);
 				//System.out.println("i=" + i);
 				//System.out.println("firstBlock=" + firstBlock);
@@ -249,6 +255,7 @@ public class BasicLCVDStorage extends FDBStorage {
 				//System.out.println("buffer length=" + buffer.length);
 				System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
 			} else {
+				System.out.println("blockID=" + i + " is NOT locally present");
 				// read from the cloud backend (slow path)
 				try {
 					blockData = blockDataStore.get(String.valueOf(i));
@@ -257,8 +264,10 @@ public class BasicLCVDStorage extends FDBStorage {
 					e.printStackTrace();
 				}
 				System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
-				super.write(blockData, i * blockSize);
-				super.flush();
+				prefetchWrite(blockData, i * blockSize);
+				prefetchFlush();
+				//super.write(blockData, i * blockSize);
+				//super.flush();
 				synchronized(presenceBitmap) {
 					presenceBitmap.set(i);
 				}
@@ -329,7 +338,8 @@ public class BasicLCVDStorage extends FDBStorage {
 	    	System.out.println("bufferStartOffset=" + bufferStartOffset + " i=" + i + " firstBlock=" + firstBlock + " blockSize=" + blockSize);
 	    	System.arraycopy(buffer, (int) ((i - firstBlock) * blockSize), copyBuf, 0, copySize);
 	    	wr.buf = copyBuf;
-		    wr.offset = offset;
+	    	//wr.offset = offset;
+		    wr.offset = i * blockSize;
 		    try {
 		    	//System.out.println("[BasicLCVDStorage] enqueuing WriteRequest for blockID=" 
 		    	//		+ ((int) wr.offset / blockSize));
@@ -574,11 +584,17 @@ public class BasicLCVDStorage extends FDBStorage {
 	}
 	
 	public void prefetchFlush() {
-		super.flush();		
+		CompletableFuture<Void> flushFuture = super.flush();
+		System.out.println("prefetchFlush joining");
+		flushFuture.join();
+		System.out.println("prefetchFlush joined");
 	}
 
 	public void prefetchWrite(byte[] blockData, long i) {
-		super.write(blockData, i);		
+		CompletableFuture<Void> writeFuture = super.write(blockData, i);
+		System.out.println("prefetchWrite joining");
+		writeFuture.join();
+		System.out.println("prefetchWrite joined");
 	}
 	
 	public byte[] localRead(byte[] buffer, long offset) {
@@ -707,6 +723,7 @@ public class BasicLCVDStorage extends FDBStorage {
 			for (Integer i : writeMapClone.keySet()) {
 				byte[] buf = writeMapClone.get(i);
 				try {
+					System.out.println("For blockID=" + i + " buf is written to the cloud");
 					blockDataStore.put(Integer.toString(i), buf);
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
