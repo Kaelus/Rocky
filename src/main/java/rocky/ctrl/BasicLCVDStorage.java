@@ -37,7 +37,7 @@ public class BasicLCVDStorage extends FDBStorage {
 
 	Thread cloudPackageManagerThread;
 	//private final AtomicBoolean running = new AtomicBoolean(false);
-	private final BlockingQueue<WriteRequest> queue;
+	protected final BlockingQueue<WriteRequest> queue;
 	public HashMap<Integer, byte[]> writeMap;
 
 	Thread roleSwitcherThread;
@@ -154,6 +154,7 @@ public class BasicLCVDStorage extends FDBStorage {
 				//System.out.println("Long.MAX=" + Long.MAX_VALUE);
 				//System.out.println("epochBytes length=" + epochBytes.length);
 				retLong = ByteUtils.bytesToLong(epochBytes);
+				System.out.println("currently epoch is " + epochCnt);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -276,6 +277,10 @@ public class BasicLCVDStorage extends FDBStorage {
 		return super.read(buffer, offset);
 	}
 
+	public CompletableFuture<Void> readPassthrough(byte[] buffer, long offset) {
+		return super.read(buffer, offset);
+	}
+	
 	@Override
 	public CompletableFuture<Void> write(byte[] buffer, long offset) {
 //		// TODO Auto-generated method stub
@@ -353,6 +358,10 @@ public class BasicLCVDStorage extends FDBStorage {
 		return super.write(buffer, offset);
 	}
 
+	public CompletableFuture<Void> writePassthrough(byte[] buffer, long offset) {
+		return super.write(buffer, offset);
+	}
+	
 	@Override
 	public CompletableFuture<Void> flush() {
 //		// TODO Auto-generated method stub

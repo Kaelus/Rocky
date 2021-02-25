@@ -38,6 +38,9 @@ $ java -jar nbdcli.jar create -n testing -s 1G
 
 [How to run]
 
+0. (if testing with local DynamoDB, do the following in the dynamodb home)
+$ java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb
+
 1. Run Rocky Controller (NBD server)
 $ java -jar `pwd`/build/libs/rocky-code-all-1.0.jar rocky.ctrl.RockyController
 
