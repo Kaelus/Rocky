@@ -32,4 +32,27 @@ public class AdvancedLCVDStorageTest {
 		System.out.println("Finishing testSimpleReadWrite");		
 	}
 	
+	@Test
+	public void testMultiBlockReadWrite() throws ExecutionException, InterruptedException {
+		System.out.println("entered testMultiBlockReadWrite");
+		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
+		Storage storage = new AdvancedLCVDStorage("testing");
+		RockyController.role = RockyControllerRoleType.Owner;
+		storage.connect();
+		byte[] buffer = new byte[2048]; 
+		for (int i = 0; i < (2048 / 8); i++) {
+			System.arraycopy("hello wo".getBytes(), 0, buffer, i * 8, 8);
+		}
+		storage.write(buffer, 0);
+		storage.flush();
+		byte[] bufferClone = buffer.clone();
+		buffer = new byte[2048];
+		storage.disconnect();
+		Assert.assertNotEquals(bufferClone, buffer);
+		storage.connect();
+		storage.read(buffer, 0);
+		storage.disconnect();
+		Assert.assertArrayEquals(bufferClone, buffer);
+		System.out.println("Finishing testMultiBlockReadWrite");
+	}
 }

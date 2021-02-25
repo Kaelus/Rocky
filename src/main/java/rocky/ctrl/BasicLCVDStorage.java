@@ -107,6 +107,44 @@ public class BasicLCVDStorage extends FDBStorage {
 		controlUIThread = new Thread(cui);
 		controlUIThread.start();
 	}
+	
+	public BasicLCVDStorage(String exportName, boolean startBasicLCVDThreadsFlag) {
+		super(exportName);
+		if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, true);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, true);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, true);
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, false);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, false);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, false);			
+		} else {
+			System.err.println("Error: Unknown backendStorageType");
+ 		   	System.exit(1);
+		}
+		int numBlock = (int) (size() / 512); //blocksize=512bytes
+		presenceBitmap = new BitSet(numBlock);
+		dirtyBitmap = new BitSet(numBlock);
+		presenceBitmap.set(0, numBlock);
+		queue = new LinkedBlockingDeque<WriteRequest>();
+		epochCnt = getEpoch();
+		prefetchedEpoch = getPrefetchedEpoch();
+		//System.out.println(">>>> epochCn=" + epochCnt);
+		writeMap = new HashMap<Integer, byte[]>();
+		RockyController.role = RockyControllerRoleType.None;
+		roleSwitchFlag = false;
+		if (startBasicLCVDThreadsFlag) {
+			CloudPackageManager cpm = new CloudPackageManager(queue);
+			cloudPackageManagerThread = new Thread(cpm);
+			Prefetcher prefetcher = new Prefetcher(this);
+			prefetcherThread = new Thread(prefetcher);
+			roleSwitcherThread = new Thread(new RoleSwitcher());
+			roleSwitcherThread.start();
+			cui = new ControlUserInterfaceRunner(roleSwitcherThread);
+			controlUIThread = new Thread(cui);
+			controlUIThread.start();
+		}
+	}
 
 	public long getPrefetchedEpoch() {
 		long retLong = 0;
@@ -683,7 +721,7 @@ public class BasicLCVDStorage extends FDBStorage {
 	}
 	
 	public class CloudPackageManager implements Runnable {
-		private final BlockingQueue<WriteRequest> q;
+		protected final BlockingQueue<WriteRequest> q;
 		public CloudPackageManager(BlockingQueue<WriteRequest> q) { 
 			this.q = q; 
 		}
