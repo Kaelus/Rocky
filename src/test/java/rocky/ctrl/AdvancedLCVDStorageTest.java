@@ -1,5 +1,6 @@
 package rocky.ctrl;
 
+import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 
 import org.junit.Assert;
@@ -55,4 +56,42 @@ public class AdvancedLCVDStorageTest {
 		Assert.assertArrayEquals(bufferClone, buffer);
 		System.out.println("Finishing testMultiBlockReadWrite");
 	}
+	
+	@Test
+	public void testCloudFlusherBlockDataUpdate() {
+		System.out.println("entered testCloudFlusherBlockDataUpdate");
+		RockyController.backendStorage = RockyController.BackendStorageType.DynamoDBLocal;
+		RockyController.epochPeriod = 1000;
+		BasicLCVDStorage storage = new AdvancedLCVDStorage("testing");
+		RockyController.role = RockyControllerRoleType.Owner;
+		storage.connect();
+		storage.cloudPackageManagerThread.start();
+		storage.blockDataStore.remove("0");
+		storage.blockDataStore.remove("1");
+		storage.blockDataStore.remove("4");
+		storage.write("hello world 0".getBytes(), 0);
+		storage.write("hello world 1".getBytes(), 512);
+		storage.write("hello world 4".getBytes(), 2048);
+		try {
+			Thread.sleep(2000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		byte[] actualBlock = null;
+		try {
+			actualBlock = storage.blockDataStore.get("0");
+			Assert.assertArrayEquals("hello world 0".getBytes(), actualBlock);
+			actualBlock = storage.blockDataStore.get("1");
+			Assert.assertArrayEquals("hello world 1".getBytes(), actualBlock);
+			actualBlock = storage.blockDataStore.get("4");
+			Assert.assertArrayEquals("hello world 4".getBytes(), actualBlock);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		storage.disconnect();
+		System.out.println("Finishing testCloudFlusherBlockDataUpdate");
+	}
+	
 }

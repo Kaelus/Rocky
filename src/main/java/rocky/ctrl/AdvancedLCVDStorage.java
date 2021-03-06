@@ -1,27 +1,18 @@
 package rocky.ctrl;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.LongAdder;
 
-import rocky.ctrl.BasicLCVDStorage.CloudFlusher;
-import rocky.ctrl.BasicLCVDStorage.CloudPackageManager;
-import rocky.ctrl.BasicLCVDStorage.Prefetcher;
-import rocky.ctrl.BasicLCVDStorage.RoleSwitcher;
-import rocky.ctrl.BasicLCVDStorage.WriteRequest;
-import rocky.ctrl.MutationLog.BlockVersion;
-import rocky.ctrl.MutationLog.MutationRecord;
-import rocky.ctrl.RockyController.RockyControllerRoleType;
 import rocky.ctrl.cloud.GenericKeyValueStore;
 import rocky.ctrl.utils.ByteUtils;
+import rocky.ctrl.utils.ObjectSerializer;
 
 public class AdvancedLCVDStorage extends BasicLCVDStorage {
 
@@ -30,10 +21,9 @@ public class AdvancedLCVDStorage extends BasicLCVDStorage {
 	public static final int blockSize = 512;
 	
 	public GenericKeyValueStore blockDataStore;
-	public GenericKeyValueStore mutationLog;
+	public GenericKeyValueStore mutationStore;
+	public List<MutationRecord> mutationLog;
 	public GenericKeyValueStore versionMap;
-	
-	public HashMap<Long, MutationRecord> mutationMap;
 	
 	public class MutationRecord implements Serializable {
 		/**
@@ -41,9 +31,8 @@ public class AdvancedLCVDStorage extends BasicLCVDStorage {
 		 */
 		private static final long serialVersionUID = 5679557532754097569L;
 		public long blockID;
-		public BlockVersion version;
-		public long timestamp;
-		public byte[] blockHash;
+		public long epoch;
+		public int blockHash;
 	}
 	
 //	private final String lcvdFilePath;
@@ -62,7 +51,7 @@ public class AdvancedLCVDStorage extends BasicLCVDStorage {
 	
 	public AdvancedLCVDStorage(String exportName) {
 		// TODO Auto-generated constructor stub
-		super(exportName, false);		
+		super(exportName, false);	
 		CloudPackageManager cpm = new CloudPackageManager(queue);
 		cloudPackageManagerThread = new Thread(cpm);
 		Prefetcher prefetcher = new Prefetcher(this);
@@ -149,12 +138,9 @@ public class AdvancedLCVDStorage extends BasicLCVDStorage {
 				//System.out.println("buffer length=" + buffer.length);
 				//System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
 			} else {
-				byte[] epochBytes = null;
-		    	byte[] blockData = null;
-		    	byte[] fetchedBytes = null;
-				epochBytes = new byte[Long.SIZE];
-		    	blockData = new byte[blockSize];
-		    	fetchedBytes = new byte[Long.SIZE + blockSize];
+				byte[] epochBytes = new byte[Long.BYTES];
+		    	byte[] blockData = new byte[blockSize];
+		    	byte[] fetchedBytes = new byte[Long.BYTES + blockSize];
 		    	
 				System.out.println("blockID=" + i + " is NOT locally present");
 				// read from the cloud backend (slow path)
@@ -192,13 +178,22 @@ public class AdvancedLCVDStorage extends BasicLCVDStorage {
 		return super.readPassthrough(buffer, offset);
 	}
 
-//	@Override
-//	public CompletableFuture<Void> write(byte[] buffer, long offset) {
-////		// TODO Auto-generated method stub
-////		return null;
-//	    
-//		return super.write(buffer, offset);
-//	}
+	@Override
+	public CompletableFuture<Void> write(byte[] buffer, long offset) {
+//		// TODO Auto-generated method stub
+//		return null;
+
+		long blockID = offset / blockSize;
+		long curEpoch = epochCnt + 1;
+		try {
+			versionMap.put("" + blockID, ByteUtils.longToBytes(curEpoch));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return super.write(buffer, offset);
+	}
 
 	@Override
 	public CompletableFuture<Void> flush() {
@@ -294,21 +289,25 @@ public class AdvancedLCVDStorage extends BasicLCVDStorage {
 				}				
 			}
 			//System.err.println("[CloudFlusher] writeMap lock released");
+			List<MutationRecord> mutationRecordSegment = null;
 			for (Integer i : writeMapClone.keySet()) {
 				byte[] buf = writeMapClone.get(i);
-				try {
-					System.out.println("For blockID=" + i + " buf is written to the cloud");
-					blockDataStore.put(Integer.toString(i), buf);
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				System.out.println("For blockID=" + i + " buf is written to the cloud");
+				MutationRecord rec = new MutationRecord();
+				rec.blockID = i;
+				rec.epoch = epochCnt + 1;
+				rec.blockHash = buf.hashCode();
+				mutationLog.add(rec);
+				if (mutationRecordSegment == null) {
+					mutationRecordSegment = new ArrayList<MutationRecord>();
 				}
+				mutationRecordSegment.add(rec);
 			}
 			long curEpoch = epochCnt + 1;
 			byte[] dmBytes = dirtyBitmapClone.toByteArray();
 			try {
 				System.out.println("dBmStore put for epoch=" + curEpoch);
-				dBmStore.put(Long.toString(curEpoch) + "-bitmap", dmBytes);
+				mutationStore.put("" + curEpoch, ObjectSerializer.serialize(mutationRecordSegment));
 				blockDataStore.put("EpochCount", ByteUtils.longToBytes(curEpoch));
 				epochCnt++;
 			} catch (IOException e) {
