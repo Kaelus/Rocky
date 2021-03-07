@@ -49,12 +49,10 @@ public class NBDVolumeServer implements Runnable {
     this.exportName = exportName;
     log = Logger.getLogger("NDB: " + exportName);
     storage = null;
-    if (RockyController.rockyMode.equals(RockyModeType.Basic)) {
-    	storage = new BasicLCVDStorage(exportName);
-    } else if (RockyController.rockyMode.equals(RockyModeType.Advanced)) {
-    	storage = new AdvancedLCVDStorage(exportName);
-    } else if (RockyController.rockyMode.equals(RockyModeType.Secure)) {
-    	storage = new SecureLCVDStorage(exportName);
+    if (RockyController.rockyMode.equals(RockyModeType.Origin)) {
+    	storage = new FDBStorage(exportName);
+    } else if (RockyController.rockyMode.equals(RockyModeType.Rocky)) {
+    	storage = new RockyStorage(exportName);
     } else {
     	System.err.println("ERROR: Unknown RockyMode=" + RockyController.rockyMode);
     	System.exit(1);

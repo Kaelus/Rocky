@@ -39,7 +39,7 @@ public class RockyController {
 	
 	public static String lcvdName;
 	
-	public enum RockyModeType {Basic, Advanced, Secure, Unknown};
+	public enum RockyModeType {Origin, Rocky, Unknown};
 	public static RockyModeType rockyMode; 
 	
 	public enum BackendStorageType {DynamoDBLocal, DynamoDB, Unknown};
@@ -55,7 +55,7 @@ public class RockyController {
 		System.out.println("Hello, Rocky");
 		//default variable settings
 		port = 10809;
-		rockyMode = RockyModeType.Basic;
+		rockyMode = RockyModeType.Rocky;
 		backendStorage = BackendStorageType.DynamoDBLocal;
 		role = RockyControllerRoleType.None;
 		epochPeriod = 30000; // 30sec
@@ -153,12 +153,10 @@ public class RockyController {
 		       } else if (line.startsWith("rockyMode")) {
 		    	   String[] tokens = line.split("=");
 		    	   String rockyModeTypeStr = tokens[1];
-		    	   if (rockyModeTypeStr.equals("basic")) {
-		    		   rockyMode = RockyModeType.Basic;
-		    	   } else if (rockyModeTypeStr.equals("advanced")) {
-		    		   rockyMode = RockyModeType.Advanced;
-		    	   } else if (rockyModeTypeStr.equals("secure")) {
-		    		   rockyMode = RockyModeType.Secure;
+		    	   if (rockyModeTypeStr.equals("origin")) {
+		    		   rockyMode = RockyModeType.Origin;
+		    	   } else if (rockyModeTypeStr.equals("rocky")) {
+		    		   rockyMode = RockyModeType.Rocky;
 		    	   } else {
 		    		   rockyMode = RockyModeType.Unknown;
 		    	   }
