@@ -16,6 +16,8 @@ public interface GenericKeyValueStore {
 	public void put(String key, byte[] value) throws IOException;
 
 	public void remove(String key);
+	
+	public void clean();
 
 }
 

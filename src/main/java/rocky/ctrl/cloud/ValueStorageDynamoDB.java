@@ -29,6 +29,8 @@ import com.amazonaws.services.dynamodbv2.model.ListTablesResult;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 
+import rocky.ctrl.RockyStorage;
+
 /**
  * This class represent generic key-value storage that is a wrapper of DynamoDB.
  *   
@@ -122,6 +124,9 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
             System.err.println("Unable to read item: " + key);
             System.err.println(e.getMessage());
         }
+//        if (retValue == null) {
+//        	retValue = new byte[RockyStorage.blockSize];
+//        }
         
 		return retValue;
 	}
@@ -257,6 +262,12 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 				System.out.println("For key=" + elemKey + ", returned value=" + new String(elemValue));
 			}
 		}
+	}
+
+	@Override
+	public void clean() {
+		table.delete();
+		table = createTable(tableName);
 	}
 
 }

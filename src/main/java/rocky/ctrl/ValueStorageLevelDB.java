@@ -6,6 +6,7 @@ import static org.fusesource.leveldbjni.JniDBFactory.factory;
 import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
+import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -45,7 +46,18 @@ public class ValueStorageLevelDB implements GenericKeyValueStore {
 	}
 	
 	public byte[] get(String key) {
-		return db.get(bytes(key));
+		byte[] retBytes = null;
+		try {
+			retBytes = db.get(bytes(key));
+		 }
+		catch (Exception e) {
+			System.err.println("Unable to read item: " + key);
+			System.err.println(e.getMessage());
+		}
+//		if (retBytes == null) {
+//			retBytes = new byte[RockyStorage.blockSize];
+//		}
+		return retBytes;
 	}
 	
 	public SortedMap<String, byte[]> get(String start, String end) throws IOException, ParseException {
@@ -75,6 +87,19 @@ public class ValueStorageLevelDB implements GenericKeyValueStore {
 	
 	public void remove(String key) {
 		db.delete(bytes(key));
+	}
+	
+	public void clean() {
+		DBIterator iterator = db.iterator();
+		while (iterator.hasNext()) {
+			db.delete(iterator.next().getKey());
+		}
+		try {
+			iterator.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	public static void main(String[] args) throws IOException {

@@ -4,19 +4,100 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
+import rocky.ctrl.cloud.GenericKeyValueStore;
+import rocky.ctrl.cloud.ValueStorageDynamoDB;
+
 public class ControlUserInterfaceRunner implements Runnable {
 
 	String loggerID = "ControlUserInterface";
 	boolean quitFlag = false;
 	
 	// command constants
-	private final int CMD_ROLE_SWITCH = 1;
-	private final int CMD_QUIT = 2;
+	private final int CMD_QUIT = -1;
+	private final int CMD_ROLE_SWITCH = 2;
+	private final int CMD_CLEAN = 3;
+	private final int CMD_PERF_EVAL = 4;
 	
 	Thread roleSwitcherThread;
 	
 	public ControlUserInterfaceRunner (Thread rsThread) {
 		roleSwitcherThread = rsThread;
+	}
+	
+	protected void cmdPerfEval() {
+		System.out.println("Performance evaluation..");
+		BufferedReader br = new BufferedReader(new InputStreamReader(
+				System.in));
+		System.out.println("[" + loggerID + "] Which setting "
+				+ "do you want to evaluate?\n"
+				+ "[1] Full Local\n"
+				+ "[2] Half Local\n"
+				+ "[3] Full Remote\n");
+		String input = null;
+		try {
+			input = br.readLine();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		invokeSetupPerfEval(input);
+	}
+	
+	public void invokeSetupPerfEval(String input) {
+		switch(Integer.parseInt(input)) {
+		case 1:
+			RockyStorage.presenceBitmap.clear();
+			break;
+		case 2:
+			for (int i = 0; i < RockyStorage.numBlock; i++) {
+				if (i % 2 == 0) {
+					RockyStorage.presenceBitmap.set(i);
+				} else {
+					RockyStorage.presenceBitmap.clear(i);
+				}
+			}
+			break;
+		case 3:
+			RockyStorage.presenceBitmap.set(0, RockyStorage.numBlock);
+			break;
+		default:
+			break;
+		}
+	}
+	
+	protected void cmdClean() {
+		GenericKeyValueStore cloudEpochBitmaps = null;
+		GenericKeyValueStore localEpochBitmaps = null;
+		GenericKeyValueStore cloudBlockSnapshotStore = null;
+		GenericKeyValueStore versionMap = null;
+		GenericKeyValueStore localBlockSnapshotStore = null;
+		
+		String cloudEpochBitmapsTableName = "cloudEpochBitmapsTable";
+		String localEpochBitmapsTableName = "localEpochBitmapsTable";
+		String cloudBlockSnapshotStoreTableName = "cloudBlockSnapshotStoreTable";
+		String versionMapTableName = "versionMapTable";
+		String localBlockSnapshotStoreTableName = "localBlockSnapshotStoreTable";
+		
+		if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
+			cloudEpochBitmaps = new ValueStorageDynamoDB(cloudEpochBitmapsTableName, true);
+			cloudBlockSnapshotStore = new ValueStorageDynamoDB(cloudBlockSnapshotStoreTableName, true);
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB)) {
+			cloudEpochBitmaps = new ValueStorageDynamoDB(cloudEpochBitmapsTableName, false);
+			cloudBlockSnapshotStore = new ValueStorageDynamoDB(cloudBlockSnapshotStoreTableName, false);
+		}
+		try {
+			localEpochBitmaps = new ValueStorageLevelDB(localEpochBitmapsTableName);
+			localBlockSnapshotStore = new ValueStorageLevelDB(localBlockSnapshotStoreTableName);
+			versionMap = new ValueStorageLevelDB(versionMapTableName);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		cloudEpochBitmaps.clean();
+		cloudBlockSnapshotStore.clean();
+		localEpochBitmaps.clean();
+		localBlockSnapshotStore.clean();
+		versionMap.clean();
 	}
 
 	protected void cmdRoleSwitch() {
@@ -98,18 +179,26 @@ public class ControlUserInterfaceRunner implements Runnable {
 			String input;
 			System.out
 					.println("[" + loggerID + "] What do you want to do? "
+							+ "[" + CMD_QUIT + "] quit"
 							+ "[" + CMD_ROLE_SWITCH + "] role switch "
-							+ "[" + CMD_QUIT + "] quit \n");
+							+ "[" + CMD_CLEAN + "] clean persistent state in dbs "
+							+ "[" + CMD_PERF_EVAL + "] performance evaluation ");
 			while (!quitFlag && ((input = br.readLine()) != null)) {
 				try {
 					int cmd = Integer.valueOf(input);
 					System.out.println("[" + loggerID + "] cmd=" + cmd); 
 					switch (cmd) {
+					case CMD_QUIT:
+						quitFlag = true;
+						break;
 					case CMD_ROLE_SWITCH:
 						cmdRoleSwitch();
 						break;
-					case CMD_QUIT:
-						quitFlag = true;
+					case CMD_CLEAN:
+						cmdClean();
+						break;
+					case CMD_PERF_EVAL:
+						cmdPerfEval();
 						break;
 					default:
 						break;
@@ -120,8 +209,10 @@ public class ControlUserInterfaceRunner implements Runnable {
 				if (!quitFlag) {
 					System.out
 					.println("[" + loggerID + "] What do you want to do? "
+							+ "[" + CMD_QUIT + "] quit"
 							+ "[" + CMD_ROLE_SWITCH + "] role switch "
-							+ "[" + CMD_QUIT + "] quit \n");
+							+ "[" + CMD_CLEAN + "] clean persistent state in dbs "
+							+ "[" + CMD_PERF_EVAL + "] performance evaluation ");
 				}
 			}
 		} catch (Exception exception) {
@@ -133,5 +224,6 @@ public class ControlUserInterfaceRunner implements Runnable {
 		System.out.println("[" + loggerID + "] Goodbye!!!");
 
 	}
+
 	
 }

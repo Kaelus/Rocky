@@ -24,6 +24,8 @@ public class RockyStorage extends FDBStorage {
 		public static final long MAX_SIZE = 51200; // HARD-CODED  512 bytes * 100
 		public static final int blockSize = 512;
 		
+		public static int numBlock;
+		
 		public static BitSet presenceBitmap;
 		public static BitSet dirtyBitmap;
 
@@ -80,6 +82,7 @@ public class RockyStorage extends FDBStorage {
 		
 		public RockyStorage(String exportName) {
 			super(exportName);
+			System.out.println("RockyStorage constructor entered");
 			if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
 				//pBmStore = new ValueStorageDynamoDB(pBmTableName, true);
 				cloudEpochBitmaps = new ValueStorageDynamoDB(cloudEpochBitmapsTableName, true);
@@ -99,10 +102,11 @@ public class RockyStorage extends FDBStorage {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			int numBlock = (int) (size() / 512); //blocksize=512bytes
+			numBlock = (int) (size() / 512); //blocksize=512bytes
 			presenceBitmap = new BitSet(numBlock);
 			dirtyBitmap = new BitSet(numBlock);
 			presenceBitmap.set(0, numBlock);
+			dirtyBitmap.set(0, numBlock);
 			queue = new LinkedBlockingDeque<WriteRequest>();
 			epochCnt = getEpoch();
 			prefetchedEpoch = getPrefetchedEpoch();
@@ -283,10 +287,16 @@ public class RockyStorage extends FDBStorage {
 					String realBlockID = "";
 					try {
 						epochToReqBytes =  versionMap.get(String.valueOf(i));
+						if (epochToReqBytes == null) {
+							epochToReqBytes = new byte[8];
+						}
 						long epochToReq = ByteUtils.bytesToLong(epochToReqBytes);
 						realBlockID = epochToReq + ":" + i;
 						//blockData = blockDataStore.get(String.valueOf(i));
 						blockData = cloudBlockSnapshotStore.get(realBlockID);
+						if (blockData == null) {
+							blockData = new byte[blockSize];
+						}
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -578,6 +588,10 @@ public class RockyStorage extends FDBStorage {
 				blockID = iter.next();
 				try {
 					blockData = cloudBlockSnapshotStore.get(String.valueOf(blockID));
+					if (blockData == null) {
+						blockData = new byte[blockSize];
+					}
+					
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();

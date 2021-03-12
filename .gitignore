@@ -11,3 +11,5 @@ lib/
 *~
 .gradle/
 run/
+localBlockSnapshotStoreTable/
+versionMapTable/
