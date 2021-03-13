@@ -165,6 +165,14 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
             System.err.println(e.getMessage());
         }
 	}
+
+
+	@Override
+	public void clean() {
+		table.delete();
+		table = createTable(tableName);
+	}
+
 	
 	public static void main(String[] args) throws IOException {
 		
@@ -262,12 +270,6 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 				System.out.println("For key=" + elemKey + ", returned value=" + new String(elemValue));
 			}
 		}
-	}
-
-	@Override
-	public void clean() {
-		table.delete();
-		table = createTable(tableName);
 	}
 
 }

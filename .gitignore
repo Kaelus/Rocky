@@ -13,3 +13,5 @@ lib/
 run/
 localBlockSnapshotStoreTable/
 versionMapTable/
+localEpochBitmapsTable/
+inputFiles/

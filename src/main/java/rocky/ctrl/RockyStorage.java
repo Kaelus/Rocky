@@ -30,18 +30,18 @@ public class RockyStorage extends FDBStorage {
 		public static BitSet dirtyBitmap;
 
 		//public String pBmTableName = "presenceBitmapTable";
-		public String cloudEpochBitmapsTableName = "cloudEpochBitmapsTable";
-		public String localEpochBitmapsTableName = "localEpochBitmapsTable";
-		public String cloudBlockSnapshotStoreTableName = "cloudBlockSnapshotStoreTable";
-		public String versionMapTableName = "versionMapTable";
-		public String localBlockSnapshotStoreTableName = "localBlockSnapshotStoreTable";
+		public static String cloudEpochBitmapsTableName = "cloudEpochBitmapsTable";
+		public static String localEpochBitmapsTableName = "localEpochBitmapsTable";
+		public static String cloudBlockSnapshotStoreTableName = "cloudBlockSnapshotStoreTable";
+		public static String versionMapTableName = "versionMapTable";
+		public static String localBlockSnapshotStoreTableName = "localBlockSnapshotStoreTable";
 		
 		//public GenericKeyValueStore pBmStore;
-		public GenericKeyValueStore cloudEpochBitmaps;
-		public GenericKeyValueStore localEpochBitmaps;
-		public GenericKeyValueStore cloudBlockSnapshotStore;
-		public GenericKeyValueStore versionMap;
-		public GenericKeyValueStore localBlockSnapshotStore;
+		public static GenericKeyValueStore cloudEpochBitmaps;
+		public static GenericKeyValueStore localEpochBitmaps;
+		public static GenericKeyValueStore cloudBlockSnapshotStore;
+		public static GenericKeyValueStore versionMap;
+		public static GenericKeyValueStore localBlockSnapshotStore;
 		
 		Thread cloudPackageManagerThread;
 		//private final AtomicBoolean running = new AtomicBoolean(false);
@@ -96,6 +96,7 @@ public class RockyStorage extends FDBStorage {
 	 		   	System.exit(1);
 			}
 			try {
+				localEpochBitmaps = new ValueStorageLevelDB(localEpochBitmapsTableName);
 				localBlockSnapshotStore = new ValueStorageLevelDB(localBlockSnapshotStoreTableName);
 				versionMap = new ValueStorageLevelDB(versionMapTableName);
 			} catch (IOException e) {
@@ -106,7 +107,7 @@ public class RockyStorage extends FDBStorage {
 			presenceBitmap = new BitSet(numBlock);
 			dirtyBitmap = new BitSet(numBlock);
 			presenceBitmap.set(0, numBlock);
-			dirtyBitmap.set(0, numBlock);
+			dirtyBitmap.clear();
 			queue = new LinkedBlockingDeque<WriteRequest>();
 			epochCnt = getEpoch();
 			prefetchedEpoch = getPrefetchedEpoch();
@@ -293,6 +294,14 @@ public class RockyStorage extends FDBStorage {
 						long epochToReq = ByteUtils.bytesToLong(epochToReqBytes);
 						realBlockID = epochToReq + ":" + i;
 						//blockData = blockDataStore.get(String.valueOf(i));
+						if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
+							try {
+								Thread.sleep(50);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+						}
 						blockData = cloudBlockSnapshotStore.get(realBlockID);
 						if (blockData == null) {
 							blockData = new byte[blockSize];
@@ -764,6 +773,7 @@ public class RockyStorage extends FDBStorage {
 					//System.err.println("[CloudFlusher] writeMap lock acquired");
 					synchronized (dirtyBitmap) {
 						writeMapClone = (HashMap<Integer, byte[]>) writeMap.clone();
+						writeMap.clear();
 						dirtyBitmapClone = (BitSet) dirtyBitmap.clone();
 						dirtyBitmap.clear();
 					}				

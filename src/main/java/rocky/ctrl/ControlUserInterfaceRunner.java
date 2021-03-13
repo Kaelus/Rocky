@@ -46,7 +46,7 @@ public class ControlUserInterfaceRunner implements Runnable {
 	public void invokeSetupPerfEval(String input) {
 		switch(Integer.parseInt(input)) {
 		case 1:
-			RockyStorage.presenceBitmap.clear();
+			RockyStorage.presenceBitmap.set(0, RockyStorage.numBlock);
 			break;
 		case 2:
 			for (int i = 0; i < RockyStorage.numBlock; i++) {
@@ -58,7 +58,7 @@ public class ControlUserInterfaceRunner implements Runnable {
 			}
 			break;
 		case 3:
-			RockyStorage.presenceBitmap.set(0, RockyStorage.numBlock);
+			RockyStorage.presenceBitmap.clear();
 			break;
 		default:
 			break;
@@ -66,38 +66,51 @@ public class ControlUserInterfaceRunner implements Runnable {
 	}
 	
 	protected void cmdClean() {
-		GenericKeyValueStore cloudEpochBitmaps = null;
-		GenericKeyValueStore localEpochBitmaps = null;
-		GenericKeyValueStore cloudBlockSnapshotStore = null;
-		GenericKeyValueStore versionMap = null;
-		GenericKeyValueStore localBlockSnapshotStore = null;
+//		GenericKeyValueStore cloudEpochBitmaps = null;
+//		GenericKeyValueStore localEpochBitmaps = null;
+//		GenericKeyValueStore cloudBlockSnapshotStore = null;
+//		GenericKeyValueStore versionMap = null;
+//		GenericKeyValueStore localBlockSnapshotStore = null;
 		
-		String cloudEpochBitmapsTableName = "cloudEpochBitmapsTable";
-		String localEpochBitmapsTableName = "localEpochBitmapsTable";
-		String cloudBlockSnapshotStoreTableName = "cloudBlockSnapshotStoreTable";
-		String versionMapTableName = "versionMapTable";
-		String localBlockSnapshotStoreTableName = "localBlockSnapshotStoreTable";
-		
-		if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
-			cloudEpochBitmaps = new ValueStorageDynamoDB(cloudEpochBitmapsTableName, true);
-			cloudBlockSnapshotStore = new ValueStorageDynamoDB(cloudBlockSnapshotStoreTableName, true);
-		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB)) {
-			cloudEpochBitmaps = new ValueStorageDynamoDB(cloudEpochBitmapsTableName, false);
-			cloudBlockSnapshotStore = new ValueStorageDynamoDB(cloudBlockSnapshotStoreTableName, false);
-		}
+		RockyStorage.cloudEpochBitmaps.clean();
+		RockyStorage.cloudBlockSnapshotStore.clean();
+		RockyStorage.localEpochBitmaps.clean();
+		RockyStorage.localBlockSnapshotStore.clean();
+		RockyStorage.versionMap.clean();
 		try {
-			localEpochBitmaps = new ValueStorageLevelDB(localEpochBitmapsTableName);
-			localBlockSnapshotStore = new ValueStorageLevelDB(localBlockSnapshotStoreTableName);
-			versionMap = new ValueStorageLevelDB(versionMapTableName);
+			RockyStorage.cloudEpochBitmaps.finish();
+			RockyStorage.cloudBlockSnapshotStore.finish();
+			RockyStorage.localEpochBitmaps.finish();
+			RockyStorage.localBlockSnapshotStore.finish();
+			RockyStorage.versionMap.finish();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		cloudEpochBitmaps.clean();
-		cloudBlockSnapshotStore.clean();
-		localEpochBitmaps.clean();
-		localBlockSnapshotStore.clean();
-		versionMap.clean();
+		
+//		String cloudEpochBitmapsTableName = "cloudEpochBitmapsTable";
+//		String localEpochBitmapsTableName = "localEpochBitmapsTable";
+//		String cloudBlockSnapshotStoreTableName = "cloudBlockSnapshotStoreTable";
+//		String versionMapTableName = "versionMapTable";
+//		String localBlockSnapshotStoreTableName = "localBlockSnapshotStoreTable";
+//		
+		if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
+			RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, true);
+			RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, true);
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB)) {
+			RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, false);
+			RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, false);
+		}
+		try {
+			RockyStorage.localEpochBitmaps = new ValueStorageLevelDB(RockyStorage.localEpochBitmapsTableName);
+			RockyStorage.localBlockSnapshotStore = new ValueStorageLevelDB(RockyStorage.localBlockSnapshotStoreTableName);
+			RockyStorage.versionMap = new ValueStorageLevelDB(RockyStorage.versionMapTableName);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		
 	}
 
 	protected void cmdRoleSwitch() {
