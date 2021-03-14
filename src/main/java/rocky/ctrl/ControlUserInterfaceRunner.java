@@ -3,8 +3,9 @@ package rocky.ctrl;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Timer;
 
-import rocky.ctrl.cloud.GenericKeyValueStore;
+import rocky.ctrl.RockyStorage.CloudFlusher;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
 
 public class ControlUserInterfaceRunner implements Runnable {
@@ -17,11 +18,30 @@ public class ControlUserInterfaceRunner implements Runnable {
 	private final int CMD_ROLE_SWITCH = 2;
 	private final int CMD_CLEAN = 3;
 	private final int CMD_PERF_EVAL = 4;
+	private final int CMD_FLUSH_CLOUD = 5;
 	
 	Thread roleSwitcherThread;
 	
+	public RockyStorage rockyStorage;
+	
 	public ControlUserInterfaceRunner (Thread rsThread) {
 		roleSwitcherThread = rsThread;
+	}
+	
+	protected void cmdFlushCloud() {
+		try {
+			RockyStorage.flusherTimer.cancel();
+		} catch (IllegalStateException ise) {
+			System.out.println("flusherTimer is cancled already.");
+		}
+		RockyStorage.flusherTimer = new Timer();
+		RockyStorage.nextFlusherTask = rockyStorage.new CloudFlusher();
+		RockyStorage.flusherTimer.schedule(RockyStorage.nextFlusherTask, 1);
+		System.out.println("cmdFlushCloud rescheduled flusher task to begin in 1 ms");
+		
+		//RockyStorage.nextFlusherTask = new TimerTask();
+		//RockyStorage.flusherTimer.schedule(RockyStorage.nextFlusherTask, 3);
+		//System.out.println("cmdFlushCloud rescheduled flusher task to begin in 3 ms");
 	}
 	
 	protected void cmdPerfEval() {
@@ -195,7 +215,8 @@ public class ControlUserInterfaceRunner implements Runnable {
 							+ "[" + CMD_QUIT + "] quit"
 							+ "[" + CMD_ROLE_SWITCH + "] role switch "
 							+ "[" + CMD_CLEAN + "] clean persistent state in dbs "
-							+ "[" + CMD_PERF_EVAL + "] performance evaluation ");
+							+ "[" + CMD_PERF_EVAL + "] performance evaluation "
+							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud ");
 			while (!quitFlag && ((input = br.readLine()) != null)) {
 				try {
 					int cmd = Integer.valueOf(input);
@@ -213,6 +234,9 @@ public class ControlUserInterfaceRunner implements Runnable {
 					case CMD_PERF_EVAL:
 						cmdPerfEval();
 						break;
+					case CMD_FLUSH_CLOUD:
+						cmdFlushCloud();
+						break;
 					default:
 						break;
 					}
@@ -225,7 +249,8 @@ public class ControlUserInterfaceRunner implements Runnable {
 							+ "[" + CMD_QUIT + "] quit"
 							+ "[" + CMD_ROLE_SWITCH + "] role switch "
 							+ "[" + CMD_CLEAN + "] clean persistent state in dbs "
-							+ "[" + CMD_PERF_EVAL + "] performance evaluation ");
+							+ "[" + CMD_PERF_EVAL + "] performance evaluation "
+							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud ");
 				}
 			}
 		} catch (Exception exception) {

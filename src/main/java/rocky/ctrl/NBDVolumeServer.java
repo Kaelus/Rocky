@@ -98,7 +98,9 @@ public class NBDVolumeServer implements Runnable {
         switch (requestType) {
           case READ: {
             byte[] buffer = new byte[requestLength.intValue()];
-            log.info("Reading " + buffer.length + " from " + offset);
+            if (RockyStorage.debugPrintoutFlag) {
+            	log.info("Reading " + buffer.length + " from " + offset);
+            }
             storage.read(buffer, offset.intValue()).thenApply($ -> {
               synchronized (out) {
                 try {
@@ -118,7 +120,9 @@ public class NBDVolumeServer implements Runnable {
           case WRITE: {
             byte[] buffer = new byte[requestLength.intValue()];
             in.readFully(buffer);
-            log.info("Writing " + buffer.length + " to " + offset);
+            if (RockyStorage.debugPrintoutFlag) {
+            	log.info("Writing " + buffer.length + " to " + offset);
+            }
             storage.write(buffer, offset.intValue()).thenApply($ -> {
               try {
                 writeReplyHeaderAndFlush(handle);

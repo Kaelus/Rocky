@@ -14,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 
 import rocky.ctrl.RockyController.RockyControllerRoleType;
+import rocky.ctrl.RockyStorage.CloudFlusher;
 import rocky.ctrl.cloud.GenericKeyValueStore;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
 import rocky.ctrl.utils.ByteUtils;
@@ -23,6 +24,8 @@ public class RockyStorage extends FDBStorage {
 		String nodeID;
 		public static final long MAX_SIZE = 51200; // HARD-CODED  512 bytes * 100
 		public static final int blockSize = 512;
+		
+		public static boolean debugPrintoutFlag = true;
 		
 		public static int numBlock;
 		
@@ -43,7 +46,9 @@ public class RockyStorage extends FDBStorage {
 		public static GenericKeyValueStore versionMap;
 		public static GenericKeyValueStore localBlockSnapshotStore;
 		
-		Thread cloudPackageManagerThread;
+		public static Thread cloudPackageManagerThread;
+		public static Timer flusherTimer;
+		public static TimerTask nextFlusherTask;
 		//private final AtomicBoolean running = new AtomicBoolean(false);
 		protected final BlockingQueue<WriteRequest> queue;
 		public HashMap<Integer, byte[]> writeMap;
@@ -53,10 +58,10 @@ public class RockyStorage extends FDBStorage {
 		
 		public static boolean roleSwitchFlag;
 		
-		Thread prefetcherThread;
+		public static Thread prefetcherThread;
 		
 		ControlUserInterfaceRunner cui;
-		Thread controlUIThread;
+		public static Thread controlUIThread;
 		
 		public static long epochCnt;
 		public static long prefetchedEpoch;
@@ -122,6 +127,7 @@ public class RockyStorage extends FDBStorage {
 			roleSwitcherThread = new Thread(new RoleSwitcher());
 			roleSwitcherThread.start();
 			cui = new ControlUserInterfaceRunner(roleSwitcherThread);
+			cui.rockyStorage = this;
 			controlUIThread = new Thread(cui);
 			controlUIThread.start();
 		}
@@ -243,8 +249,10 @@ public class RockyStorage extends FDBStorage {
 //				}
 //			}
 			
-			System.out.println("read entered. buffer size=" + buffer.length);
-			System.out.println("offset=" + offset);
+			if (debugPrintoutFlag) {
+				System.out.println("read entered. buffer size=" + buffer.length);
+				System.out.println("offset=" + offset);
+			}
 			
 			long firstBlock = offset / blockSize;
 		    int length = buffer.length;
@@ -256,8 +264,10 @@ public class RockyStorage extends FDBStorage {
 		    }
 		    //long lastBlock = (offset + length) / blockSize;
 		    
-		    System.out.println("firstBlock=" + firstBlock + " lastBlock=" + lastBlock + " length=" + length);
-		    
+		    if (debugPrintoutFlag) {
+		    	System.out.println("firstBlock=" + firstBlock + " lastBlock=" + lastBlock + " length=" + length);
+		    }
+		    	
 //		    // we assume that buffer size to be blockSize when it is used
 //		    // as a block device properly. O.W. it can be smaller than that.
 //		    // To make it compatible with the original intention, when 
@@ -274,15 +284,19 @@ public class RockyStorage extends FDBStorage {
 		    		isPresent = presenceBitmap.get(i);
 		    	}
 		    	if (isPresent) {
-		    		System.out.println("blockID=" + i + " is locally present");
-					super.read(blockData, i * blockSize);
+		    		if (debugPrintoutFlag) {
+		    			System.out.println("blockID=" + i + " is locally present");
+		    		}
+		    		super.read(blockData, i * blockSize);
 					//System.out.println("i=" + i);
 					//System.out.println("firstBlock=" + firstBlock);
 					//System.out.println("blockData length=" + blockData.length);
 					//System.out.println("buffer length=" + buffer.length);
 					System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
 				} else {
-					System.out.println("blockID=" + i + " is NOT locally present");
+					if (debugPrintoutFlag) {
+						System.out.println("blockID=" + i + " is NOT locally present");
+					}
 					// read from the cloud backend (slow path)
 					byte[] epochToReqBytes = null;
 					String realBlockID = "";
@@ -336,8 +350,10 @@ public class RockyStorage extends FDBStorage {
 				}
 			}
 			
-			System.out.println("write entered. buffer size=" + buffer.length);
-			System.out.println("offset=" + offset);
+			if (debugPrintoutFlag) {
+				System.out.println("write entered. buffer size=" + buffer.length);
+				System.out.println("offset=" + offset);
+			}
 			
 			long firstBlock = offset / blockSize;
 			int length = buffer.length;
@@ -349,8 +365,10 @@ public class RockyStorage extends FDBStorage {
 		    }
 		    //long lastBlock = (offset + length) / blockSize;
 		    
-		    System.out.println("firstBlock=" + firstBlock + " lastBlock=" + lastBlock + " length=" + length);
-		    
+		    if (debugPrintoutFlag) {
+		    	System.out.println("firstBlock=" + firstBlock + " lastBlock=" + lastBlock + " length=" + length);
+		    }
+		    	
 //		    // we assume that buffer size to be blockSize when it is used
 //		    // as a block device properly. O.W. it can be smaller than that.
 //		    // To make it compatible with the original intention, when 
@@ -361,14 +379,18 @@ public class RockyStorage extends FDBStorage {
 //		    }
 //		    for (int i = (int) firstBlock; i < (int) lastBlock; i++) {
 	    	for (int i = (int) firstBlock; i <= (int) lastBlock; i++) {
-		    	System.out.println("setting dirtyBitmap for blockID=" + i);
-		    	synchronized(dirtyBitmap) {
+	    		if (debugPrintoutFlag) {
+	    			System.out.println("setting dirtyBitmap for blockID=" + i);
+	    		}
+	    		synchronized(dirtyBitmap) {
 		    		dirtyBitmap.set(i);
 		    	}
 		    	WriteRequest wr = new WriteRequest();
 		    	int copySize = 0;
 		    	if (i == lastBlock) {
-		    		System.out.println("copySize first");
+		    		if (debugPrintoutFlag) {
+		    			System.out.println("copySize first");
+		    		}
 		    		int residual = buffer.length % blockSize;
 		    		if (residual == 0) {
 		    			copySize = blockSize;
@@ -376,13 +398,19 @@ public class RockyStorage extends FDBStorage {
 		    			copySize = residual;
 		    		}
 		    	} else {
-		    		System.out.println("copySize second");
+		    		if (debugPrintoutFlag) {
+		    			System.out.println("copySize second");
+		    		}
 		    		copySize = blockSize;
 		    	}
 		    	byte[] copyBuf = new byte[copySize];
-		    	System.out.println("copySize=" + copySize);
+		    	if (debugPrintoutFlag) {
+		    		System.out.println("copySize=" + copySize);
+		    	}
 		    	int bufferStartOffset = (int) ((i - firstBlock) * blockSize);
-		    	System.out.println("bufferStartOffset=" + bufferStartOffset + " i=" + i + " firstBlock=" + firstBlock + " blockSize=" + blockSize);
+		    	if (debugPrintoutFlag) {
+		    		System.out.println("bufferStartOffset=" + bufferStartOffset + " i=" + i + " firstBlock=" + firstBlock + " blockSize=" + blockSize);
+		    	}
 		    	System.arraycopy(buffer, (int) ((i - firstBlock) * blockSize), copyBuf, 0, copySize);
 		    	wr.buf = copyBuf;
 		    	//wr.offset = offset;
@@ -537,11 +565,15 @@ public class RockyStorage extends FDBStorage {
 						try {
 							byte[] latestEpochBytes = cloudBlockSnapshotStore.get("EpochCount");
 							if (latestEpochBytes == null) {
-								System.out.println("Prefetcher thread gets interrupted, exit the main loop here");
+								if (debugPrintoutFlag) {
+									System.out.println("Prefetcher thread gets interrupted, exit the main loop here");
+								}
 								break;
 							}
 							latestEpoch = ByteUtils.bytesToLong(latestEpochBytes);
-							System.out.println("latestEpoch=" + latestEpoch);
+							if (debugPrintoutFlag) {
+								System.out.println("latestEpoch=" + latestEpoch);
+							}
 							//byte[] myPrefetchedEpochBytes = blockDataStore.get("PrefetchedEpoch-" + RockyController.nodeID);
 							//if (myPrefetchedEpochBytes == null) {
 							//	blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(myPrefetchedEpoch));
@@ -551,9 +583,10 @@ public class RockyStorage extends FDBStorage {
 							// TODO Auto-generated catch block
 							e.printStackTrace();
 						}
-
-						System.out.println("prefetchedEpoch=" + RockyStorage.prefetchedEpoch);
-						System.out.println("epochCnt=" + epochCnt);
+						if (debugPrintoutFlag) { 
+							System.out.println("prefetchedEpoch=" + RockyStorage.prefetchedEpoch);
+							System.out.println("epochCnt=" + epochCnt);
+						}
 						if (latestEpoch > epochCnt) { // if I am Owner, I don't need to prefetch as I am the most up-to-date node
 							if (latestEpoch > RockyStorage.prefetchedEpoch) { // if I am nonOwner with nothing more to prefetch, I don't prefetch
 								// Get all epoch bitmaps
@@ -636,16 +669,24 @@ public class RockyStorage extends FDBStorage {
 		
 		public void prefetchFlush() {
 			CompletableFuture<Void> flushFuture = super.flush();
-			System.out.println("prefetchFlush joining");
+			if (debugPrintoutFlag) {
+				System.out.println("prefetchFlush joining");
+			}
 			flushFuture.join();
-			System.out.println("prefetchFlush joined");
+			if (debugPrintoutFlag) {
+				System.out.println("prefetchFlush joined");
+			}
 		}
 
 		public void prefetchWrite(byte[] blockData, long i) {
 			CompletableFuture<Void> writeFuture = super.write(blockData, i);
-			System.out.println("prefetchWrite joining");
+			if (debugPrintoutFlag) {
+				System.out.println("prefetchWrite joining");
+			}
 			writeFuture.join();
-			System.out.println("prefetchWrite joined");
+			if (debugPrintoutFlag) {
+				System.out.println("prefetchWrite joined");
+			}
 		}
 		
 		public byte[] localRead(byte[] buffer, long offset) {
@@ -740,13 +781,16 @@ public class RockyStorage extends FDBStorage {
 			public void run() {
 				System.out.println("[CloudPackageManager] run entered");
 				try {
-					Timer timer = new Timer();
-					timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
+					flusherTimer = new Timer();
+					nextFlusherTask = new CloudFlusher();
+					flusherTimer.schedule(nextFlusherTask, RockyController.epochPeriod);
 					while (true) { 
 						WriteRequest wr = q.take();
-				    	System.out.println("[CloudPackageManager] dequeued WriteRequest for blockID=" 
-				    			+ ((int) wr.offset / blockSize));
-						//System.err.println("[CloudPackageManager] writeMap lock acquire attempt");
+						if (debugPrintoutFlag) {
+							System.out.println("[CloudPackageManager] dequeued WriteRequest for blockID=" 
+								+ ((int) wr.offset / blockSize));
+						}
+							//System.err.println("[CloudPackageManager] writeMap lock acquire attempt");
 				    	synchronized(writeMap) {
 							//System.err.println("[CloudPackageManager] writeMap lock acquired");
 							writeMap.put((int) (wr.offset / blockSize), wr.buf);
@@ -783,8 +827,12 @@ public class RockyStorage extends FDBStorage {
 				for (Integer i : writeMapClone.keySet()) {
 					byte[] buf = writeMapClone.get(i);
 					try {
-						System.out.println("For blockID=" + i + " buf is written to the cloud");
 						String blockSnapshotID = curEpoch + ":" + i;
+						if (debugPrintoutFlag) {
+							System.out.println("For blockID=" + i + " buf is written to the cloud");
+							System.out.println("blockSnapshotID=" + blockSnapshotID);
+						}
+						versionMap.put(String.valueOf(i), ByteUtils.longToBytes(curEpoch));
 						localBlockSnapshotStore.put(blockSnapshotID, buf);
 						cloudBlockSnapshotStore.put(blockSnapshotID, buf);
 					} catch (IOException e) {
@@ -794,7 +842,9 @@ public class RockyStorage extends FDBStorage {
 				}
 				byte[] dmBytes = dirtyBitmapClone.toByteArray();
 				try {
-					System.out.println("dBmStore put for epoch=" + curEpoch);
+					if (debugPrintoutFlag) {
+						System.out.println("dBmStore put for epoch=" + curEpoch);
+					}
 					cloudEpochBitmaps.put(Long.toString(curEpoch) + "-bitmap", dmBytes);
 					cloudBlockSnapshotStore.put("EpochCount", ByteUtils.longToBytes(curEpoch));
 					epochCnt++;
@@ -802,8 +852,9 @@ public class RockyStorage extends FDBStorage {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				Timer timer = new Timer();
-				timer.schedule(new CloudFlusher(), RockyController.epochPeriod);
+				flusherTimer = new Timer();
+				nextFlusherTask = new CloudFlusher();
+				flusherTimer.schedule(nextFlusherTask, RockyController.epochPeriod);
 			}
 		}
 
