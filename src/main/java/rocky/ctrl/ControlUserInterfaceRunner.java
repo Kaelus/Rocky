@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.util.Timer;
 
 import rocky.ctrl.RockyStorage.CloudFlusher;
+import rocky.ctrl.RockyStorage.Prefetcher;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
 
 public class ControlUserInterfaceRunner implements Runnable {
@@ -19,6 +20,9 @@ public class ControlUserInterfaceRunner implements Runnable {
 	private final int CMD_CLEAN = 3;
 	private final int CMD_PERF_EVAL = 4;
 	private final int CMD_FLUSH_CLOUD = 5;
+	private final int CMD_PREFETCH = 6;
+	private final int CMD_RESET_EPOCH = 7;
+	private final int CMD_MS_STAT = 8;
 	
 	Thread roleSwitcherThread;
 	
@@ -26,6 +30,53 @@ public class ControlUserInterfaceRunner implements Runnable {
 	
 	public ControlUserInterfaceRunner (Thread rsThread) {
 		roleSwitcherThread = rsThread;
+	}
+	
+	protected void cmdMutationSnapStat() {
+		System.out.println("Mutation Snapshot Stat..");
+		BufferedReader br = new BufferedReader(new InputStreamReader(
+				System.in));
+		System.out.println("[" + loggerID + "] What do you want?\n"
+				+ "[1] Print stats\n"
+				+ "[2] Reset stats\n");
+		String input = null;
+		try {
+			input = br.readLine();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		switch(Integer.parseInt(input)) {
+		case 1:
+			System.out.println("Number of requested block writes=" + RockyStorage.numBlockWrites);
+			System.out.println("Number of blocks for a Mutation Snapshot=" + rockyStorage.writeMap.size());
+			System.out.println("Number of past epochs prefetched=" + RockyStorage.numPastEpochsPrefetched);
+			System.out.println("Number of dirty blocks for past epochs=" + RockyStorage.numBlockWrittenForPastEpochs);
+			System.out.println("Number of blocks in merged snapshot=" + RockyStorage.numBlocksMergedSnapshot);
+			break;
+		case 2:
+			RockyStorage.numBlockWrites = 0;
+			RockyStorage.numPastEpochsPrefetched = 0;
+			RockyStorage.numBlockWrittenForPastEpochs = 0;
+			RockyStorage.numBlocksMergedSnapshot = 0;
+			break;
+		default:
+			break;
+		}
+	}
+	
+	protected void cmdResetEpoch() {
+		RockyStorage.epochCnt = 0;
+		RockyStorage.prefetchedEpoch = 0;
+	}
+	
+	protected void cmdPrefetch() {
+		try {
+			rockyStorage.prefetch();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	protected void cmdFlushCloud() {
@@ -93,6 +144,7 @@ public class ControlUserInterfaceRunner implements Runnable {
 //		GenericKeyValueStore localBlockSnapshotStore = null;
 		
 		RockyStorage.cloudEpochBitmaps.clean();
+		RockyStorage.cloudBlockSnapshotStore.remove("EpochCount");
 		RockyStorage.cloudBlockSnapshotStore.clean();
 		RockyStorage.localEpochBitmaps.clean();
 		RockyStorage.localBlockSnapshotStore.clean();
@@ -216,7 +268,10 @@ public class ControlUserInterfaceRunner implements Runnable {
 							+ "[" + CMD_ROLE_SWITCH + "] role switch "
 							+ "[" + CMD_CLEAN + "] clean persistent state in dbs "
 							+ "[" + CMD_PERF_EVAL + "] performance evaluation "
-							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud ");
+							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud "
+							+ "[" + CMD_PREFETCH + "] prefetch "
+							+ "[" + CMD_RESET_EPOCH + "] Set epoch counts "
+							+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats");
 			while (!quitFlag && ((input = br.readLine()) != null)) {
 				try {
 					int cmd = Integer.valueOf(input);
@@ -237,6 +292,15 @@ public class ControlUserInterfaceRunner implements Runnable {
 					case CMD_FLUSH_CLOUD:
 						cmdFlushCloud();
 						break;
+					case CMD_PREFETCH:
+						cmdPrefetch();
+						break;
+					case CMD_RESET_EPOCH:
+						cmdResetEpoch();
+						break;
+					case CMD_MS_STAT:
+						cmdMutationSnapStat();
+						break;
 					default:
 						break;
 					}
@@ -250,7 +314,10 @@ public class ControlUserInterfaceRunner implements Runnable {
 							+ "[" + CMD_ROLE_SWITCH + "] role switch "
 							+ "[" + CMD_CLEAN + "] clean persistent state in dbs "
 							+ "[" + CMD_PERF_EVAL + "] performance evaluation "
-							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud ");
+							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud "
+							+ "[" + CMD_PREFETCH + "] prefetch "
+							+ "[" + CMD_RESET_EPOCH + "] Set epoch counts "
+							+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats");
 				}
 			}
 		} catch (Exception exception) {

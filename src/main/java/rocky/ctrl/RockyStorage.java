@@ -25,7 +25,16 @@ public class RockyStorage extends FDBStorage {
 		public static final long MAX_SIZE = 51200; // HARD-CODED  512 bytes * 100
 		public static final int blockSize = 512;
 		
-		public static boolean debugPrintoutFlag = true;
+		public static boolean debugPrintoutFlag = false;
+		
+		public static boolean mutationSnapEvalFlag = true;
+		public static int numBlockWrites = 0;
+		public static int numMutationSnapshotBlocks = 0;
+		
+		public static boolean snapMergeEvalFlag = true;
+		public static int numPastEpochsPrefetched = 0;
+		public static int numBlockWrittenForPastEpochs = 0;
+		public static int numBlocksMergedSnapshot = 0;
 		
 		public static int numBlock;
 		
@@ -287,12 +296,12 @@ public class RockyStorage extends FDBStorage {
 		    		if (debugPrintoutFlag) {
 		    			System.out.println("blockID=" + i + " is locally present");
 		    		}
-		    		super.read(blockData, i * blockSize);
+//		    		super.read(blockData, i * blockSize);
 					//System.out.println("i=" + i);
 					//System.out.println("firstBlock=" + firstBlock);
 					//System.out.println("blockData length=" + blockData.length);
 					//System.out.println("buffer length=" + buffer.length);
-					System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
+//					System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
 				} else {
 					if (debugPrintoutFlag) {
 						System.out.println("blockID=" + i + " is NOT locally present");
@@ -308,6 +317,9 @@ public class RockyStorage extends FDBStorage {
 						long epochToReq = ByteUtils.bytesToLong(epochToReqBytes);
 						realBlockID = epochToReq + ":" + i;
 						//blockData = blockDataStore.get(String.valueOf(i));
+						if (debugPrintoutFlag) {
+							System.out.println("fetching with real blockID=" + realBlockID);
+						}
 						if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
 							try {
 								Thread.sleep(50);
@@ -320,11 +332,12 @@ public class RockyStorage extends FDBStorage {
 						if (blockData == null) {
 							blockData = new byte[blockSize];
 						}
+						localBlockSnapshotStore.put(realBlockID, blockData);
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-					System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
+//					System.arraycopy(blockData, 0, buffer, (int) ((i - firstBlock) * blockSize), blockSize);
 					prefetchWrite(blockData, i * blockSize);
 					prefetchFlush();
 					//super.write(blockData, i * blockSize);
@@ -369,6 +382,10 @@ public class RockyStorage extends FDBStorage {
 		    	System.out.println("firstBlock=" + firstBlock + " lastBlock=" + lastBlock + " length=" + length);
 		    }
 		    	
+		    if (mutationSnapEvalFlag) {
+		    	numBlockWrites += (int) (lastBlock - firstBlock + 1);
+		    }
+		    
 //		    // we assume that buffer size to be blockSize when it is used
 //		    // as a block device properly. O.W. it can be smaller than that.
 //		    // To make it compatible with the original intention, when 
@@ -547,6 +564,52 @@ public class RockyStorage extends FDBStorage {
 		/*
 		 * Periodic Prefetching: Enable for both Owner and NonOwner
 		 */
+		public void prefetch () throws IOException {
+			long latestEpoch = -1;
+				byte[] latestEpochBytes = cloudBlockSnapshotStore.get("EpochCount");
+				if (latestEpochBytes == null) {
+					if (debugPrintoutFlag) {
+						System.out.println("Prefetcher thread gets interrupted, exit the main loop here");
+					}
+					return;
+				}
+				latestEpoch = ByteUtils.bytesToLong(latestEpochBytes);
+				if (debugPrintoutFlag) {
+					System.out.println("latestEpoch=" + latestEpoch);
+				}
+				//byte[] myPrefetchedEpochBytes = blockDataStore.get("PrefetchedEpoch-" + RockyController.nodeID);
+				//if (myPrefetchedEpochBytes == null) {
+				//	blockDataStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(myPrefetchedEpoch));
+				//}
+				//myPrefetchedEpoch = ByteUtils.bytesToLong(myPrefetchedEpochBytes);
+			if (debugPrintoutFlag) { 
+				System.out.println("prefetchedEpoch=" + RockyStorage.prefetchedEpoch);
+				System.out.println("epochCnt=" + epochCnt);
+			}
+			if (latestEpoch > RockyStorage.prefetchedEpoch) { // if I am nonOwner with nothing more to prefetch, I don't prefetch
+				// Get all epoch bitmaps
+				//List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, myPrefetchedEpoch);
+				List<BitSet> epochBitmapList = fetchNextEpochBitmaps(latestEpoch, RockyStorage.prefetchedEpoch);
+				
+				// Get a list of blockIDs to prefetch
+				HashSet<Integer> blockIDList = getPrefetchBlockIDList(epochBitmapList);
+			
+				if (blockIDList != null) { // if blockIDList is null, we don't need to prefetch anything
+					// Prefetch loop
+					prefetchBlocks(this, blockIDList);
+					
+					// Update PrefetchedEpoch-<nodeID> on cloud and prefetchedEpoch
+					try {
+						cloudBlockSnapshotStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(latestEpoch));
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					prefetchedEpoch = latestEpoch;
+				}
+			}	
+		}
+		
 		
 		public class Prefetcher implements Runnable {
 			RockyStorage myStorage = null;
@@ -629,11 +692,17 @@ public class RockyStorage extends FDBStorage {
 			while (iter.hasNext()) {
 				blockID = iter.next();
 				try {
-					blockData = cloudBlockSnapshotStore.get(String.valueOf(blockID));
+					byte[] epochBytes = versionMap.get(String.valueOf(blockID));
+					long epochToRead = ByteUtils.bytesToLong(epochBytes);
+					String realBlockID = epochToRead + ":" + blockID;
+					if (debugPrintoutFlag) {
+						System.out.println("readBlockID to prefetch=" + realBlockID);
+					}
+					blockData = cloudBlockSnapshotStore.get(realBlockID);
 					if (blockData == null) {
 						blockData = new byte[blockSize];
 					}
-					
+					localBlockSnapshotStore.put(realBlockID, blockData);
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -703,12 +772,19 @@ public class RockyStorage extends FDBStorage {
 			List<BitSet> retList = null;
 			byte[] epochBitmap = null;
 			for (long i = myPrefetchedEpoch + 1; i <= latestEpoch; i++) {
+				if (debugPrintoutFlag) {
+					System.out.println("myPrefetchedEpoch=" + myPrefetchedEpoch 
+						+ " i=" + i + " latestEpoch=" + latestEpoch);
+				}
 				try {
 					epochBitmap = cloudEpochBitmaps.get(i + "-bitmap");
 					if (epochBitmap == null) {
 						System.err.println("ASSERT: failed to fetch " + i + "-bitmap");
 						System.exit(1);
 					} else {
+						if (debugPrintoutFlag) {
+							System.out.println("epochBitmap is received for epoch=" + i);
+						}
 						if (retList == null) {
 							retList = new ArrayList<BitSet>();
 						}
@@ -716,9 +792,21 @@ public class RockyStorage extends FDBStorage {
 						retList.add(epochBitmapBitSet);
 						localEpochBitmaps.put(i + "-bitmap", epochBitmap);
 						byte[] thisEpochBytes = ByteUtils.longToBytes(i);
-						int j = 0;
-						while((j = epochBitmapBitSet.nextSetBit(j)) >= 0) {
-							versionMap.put(j + "", thisEpochBytes);
+						if (debugPrintoutFlag) {
+							System.out.println("about to enter the loop updating versionMap");
+						}
+						for (int j = epochBitmapBitSet.nextSetBit(0); j >= 0; j = epochBitmapBitSet.nextSetBit(j+1)) {
+							// operate on index i here
+						    if (i == Integer.MAX_VALUE) {
+						    	break; // or (i+1) would overflow
+						    }
+						    versionMap.put(j + "", thisEpochBytes);
+						}
+						//while((j = epochBitmapBitSet.nextSetBit(j)) >= 0) {
+						//	versionMap.put(j + "", thisEpochBytes);
+						//}
+						if (debugPrintoutFlag) {
+							System.out.println("finished with updating versionMap for epoch=" + i);
 						}
 					}
 				} catch (IOException e) {
@@ -832,8 +920,8 @@ public class RockyStorage extends FDBStorage {
 							System.out.println("For blockID=" + i + " buf is written to the cloud");
 							System.out.println("blockSnapshotID=" + blockSnapshotID);
 						}
-						versionMap.put(String.valueOf(i), ByteUtils.longToBytes(curEpoch));
 						localBlockSnapshotStore.put(blockSnapshotID, buf);
+						versionMap.put(String.valueOf(i), ByteUtils.longToBytes(curEpoch));
 						cloudBlockSnapshotStore.put(blockSnapshotID, buf);
 					} catch (IOException e) {
 						// TODO Auto-generated catch block

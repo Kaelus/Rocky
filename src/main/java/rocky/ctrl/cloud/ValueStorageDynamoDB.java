@@ -114,9 +114,13 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 		GetItemSpec spec = new GetItemSpec().withPrimaryKey("key", key);
 
         try {
-            System.out.println("Attempting to read the item...");
+        	if (RockyStorage.debugPrintoutFlag) {
+        		System.out.println("Attempting to read the item...");
+        	}
             Item outcome = table.getItem(spec);
-            System.out.println("GetItem succeeded: " + outcome);
+            if (RockyStorage.debugPrintoutFlag) {
+            	System.out.println("GetItem succeeded: " + outcome);
+            }
             Object outcomeValue = outcome.get("value");
             retValue = (byte[]) outcomeValue;
         }
@@ -139,11 +143,15 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 	@Override
 	public void put(String key, byte[] value) throws IOException {
 		try {
-            System.out.println("Adding a new item...");
+			if (RockyStorage.debugPrintoutFlag) {
+				System.out.println("Adding a new item...");
+			}
             PutItemOutcome outcome = null;
    			outcome = table.putItem(new Item().withPrimaryKey("key", key)
    					.withBinary("value", value));
-   			System.out.println("PutItem succeeded:\n" + outcome.getPutItemResult());
+   			if (RockyStorage.debugPrintoutFlag) {
+   				System.out.println("PutItem succeeded:\n" + outcome.getPutItemResult());
+   			}
 		} catch (Exception e) {
 			System.err.println("Unable to add item: " + key);
 			System.err.println(e.getMessage());
@@ -156,9 +164,13 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 		DeleteItemSpec deleteItemSpec = new DeleteItemSpec()
                 .withPrimaryKey(new PrimaryKey("key", key));
         try {
-            System.out.println("Attempting a delete...");
+        	if (RockyStorage.debugPrintoutFlag) {
+        		System.out.println("Attempting a delete...");
+        	}
             table.deleteItem(deleteItemSpec);
-            System.out.println("DeleteItem succeeded");
+            if (RockyStorage.debugPrintoutFlag) {
+            	System.out.println("DeleteItem succeeded");
+            }
         }
         catch (Exception e) {
             System.err.println("Unable to delete item: " + key);
