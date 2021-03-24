@@ -48,7 +48,7 @@ To disconnect the Rocky Block Device from the Rocky server, `sudo nbd-client -d 
 
 To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 
-# To Test
+## To Test
 
 - `sudo mkfs.ext4 /dev/nbd0`
 - `sudo mount /dev/nbd0 /tmp`
