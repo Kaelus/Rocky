@@ -4,7 +4,7 @@ Rocky provides an block device that replicates blocks on end devices via a cloud
 
 # How to build
 
-- `gradle clean fatJar`
+`gradle clean fatJar`
 
 # Prerequisites
 0. OS: the followings are tested on Ubuntu 16.04
