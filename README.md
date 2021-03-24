@@ -21,9 +21,9 @@ Rocky provides an block device that replicates blocks on end devices via a cloud
      - `git clone https://github.com/spullara/nbd.git`
    - Need to update pom.xml before build:
      - Find the line for foundationdb
-       - Fix it to direct to the correct repository by referring to this [link](https://mvnrepository.com/artifact/org.foundationdb/fdb-java/5.2.5)
+       - Fix it to direct to the correct repository by referring to https://mvnrepository.com/artifact/org.foundationdb/fdb-java/5.2.5
        - Then, build (This will create nbdcli.jar under the directory 'target') by `mvn package`
-   - To create the volume, follow the instruction at (https://github.com/spullara/nbd)
+   - To create the volume, follow the instruction at https://github.com/spullara/nbd
      - `java -jar nbdcli.jar server`
      - `java -jar nbdcli.jar create -n testing -s 1G`
        - Note 'testing' can be replaced with any volume name
@@ -33,10 +33,10 @@ Rocky provides an block device that replicates blocks on end devices via a cloud
 # How to run
 
 0. (if testing with local DynamoDB, do the following in the dynamodb home)
-   `java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb`
+   - `java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb`
 
 1. Run Rocky Controller (NBD server)
-   `java -jar `pwd`/build/libs/rocky-code-all-1.0.jar rocky.ctrl.RockyController`
+   - `java -jar `pwd`/build/libs/rocky-code-all-1.0.jar rocky.ctrl.RockyController`
 
 2. Prepare the Rocky Block Device (nbd module & nbd client)
    - `sudo modprobe nbd`
@@ -50,10 +50,10 @@ To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 
 # To Test
 
-`sudo mkfs.ext4 /dev/nbd0`
-`sudo mount /dev/nbd0 /tmp`
-`ls`
-`sudo umount /tmp`
+- `sudo mkfs.ext4 /dev/nbd0`
+- `sudo mount /dev/nbd0 /tmp`
+- `ls`
+- `sudo umount /tmp`
 
 # To Run multiple Rocky instances on a single host
 
