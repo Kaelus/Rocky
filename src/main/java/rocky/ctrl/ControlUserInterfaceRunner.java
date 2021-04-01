@@ -23,6 +23,7 @@ public class ControlUserInterfaceRunner implements Runnable {
 	private final int CMD_PREFETCH = 6;
 	private final int CMD_RESET_EPOCH = 7;
 	private final int CMD_MS_STAT = 8;
+	private final int CMD_FLIP_DEBUG_PRINT_FLAG = 9;
 	
 	Thread roleSwitcherThread;
 	
@@ -30,6 +31,16 @@ public class ControlUserInterfaceRunner implements Runnable {
 	
 	public ControlUserInterfaceRunner (Thread rsThread) {
 		roleSwitcherThread = rsThread;
+	}
+	
+	protected void cmdFlipDebugPrintFlag() {
+		System.out.println("Currently, the debug printout flag is=" + RockyStorage.debugPrintoutFlag);
+		if (RockyStorage.debugPrintoutFlag) {
+			RockyStorage.debugPrintoutFlag = false;
+		} else {
+			RockyStorage.debugPrintoutFlag = true;
+		}
+		System.out.println("Flipped. now=" + RockyStorage.debugPrintoutFlag);
 	}
 	
 	protected void cmdMutationSnapStat() {
@@ -124,17 +135,14 @@ public class ControlUserInterfaceRunner implements Runnable {
 	
 	public void invokeSetupPerfEval(int percent) {
 		if (percent == 0) {
-			RockyStorage.presenceBitmap.set(0, RockyStorage.numBlock, false);
-		} else if (percent == 100) {
 			RockyStorage.presenceBitmap.clear();
+		} else if (percent == 100) {
+			RockyStorage.presenceBitmap.set(0, RockyStorage.numBlock);			
 		} else {
-			int partition = RockyStorage.numBlock * percent / 100;
-			for (int i = 0; i < RockyStorage.numBlock; i++) {
-				if (i % partition == 0) {
-					RockyStorage.presenceBitmap.set(i);
-				} else {
-					RockyStorage.presenceBitmap.clear(i);
-				}
+			// for every partition consisting of 10 blocks, how many are present..
+			RockyStorage.presenceBitmap.clear();
+			for (int i = 0; i < RockyStorage.numBlock; i += 100) {
+				RockyStorage.presenceBitmap.set(i, i + percent - 1);
 			}
 		}
 	}
@@ -289,7 +297,8 @@ public class ControlUserInterfaceRunner implements Runnable {
 							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud "
 							+ "[" + CMD_PREFETCH + "] prefetch "
 							+ "[" + CMD_RESET_EPOCH + "] Set epoch counts "
-							+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats");
+							+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats "
+							+ "[" + CMD_FLIP_DEBUG_PRINT_FLAG + "] Flipping the debugPrintoutFlag\n");
 			while (!quitFlag && ((input = br.readLine()) != null)) {
 				try {
 					int cmd = Integer.valueOf(input);
@@ -319,6 +328,9 @@ public class ControlUserInterfaceRunner implements Runnable {
 					case CMD_MS_STAT:
 						cmdMutationSnapStat();
 						break;
+					case CMD_FLIP_DEBUG_PRINT_FLAG:
+						cmdFlipDebugPrintFlag();
+						break;
 					default:
 						break;
 					}
@@ -335,7 +347,8 @@ public class ControlUserInterfaceRunner implements Runnable {
 							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud "
 							+ "[" + CMD_PREFETCH + "] prefetch "
 							+ "[" + CMD_RESET_EPOCH + "] Set epoch counts "
-							+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats");
+							+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats "
+							+ "[" + CMD_FLIP_DEBUG_PRINT_FLAG + "] Flipping the debugPrintoutFlag\n");
 				}
 			}
 		} catch (Exception exception) {
