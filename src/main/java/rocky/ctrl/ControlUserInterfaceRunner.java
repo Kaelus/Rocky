@@ -99,40 +99,43 @@ public class ControlUserInterfaceRunner implements Runnable {
 		System.out.println("Performance evaluation..");
 		BufferedReader br = new BufferedReader(new InputStreamReader(
 				System.in));
-		System.out.println("[" + loggerID + "] Which setting "
-				+ "do you want to evaluate?\n"
-				+ "[1] Full Local\n"
-				+ "[2] Half Local\n"
-				+ "[3] Full Remote\n");
+		System.out.println("[" + loggerID + "] How much percentage of blocks "
+				+ "do you want to have locally to evaluate?\n");
 		String input = null;
 		try {
 			input = br.readLine();
+			if (input == null) {
+				System.out.println("Nothing has entered. skip.");
+			} else {
+				int percent = Integer.parseInt(input);
+				if (percent < 0 || percent > 100) {
+					System.out.println("You should enter something between 0 and 100, but entered=" + percent);
+				} else {
+					invokeSetupPerfEval(percent);
+				}
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		} catch (NumberFormatException e2) {
+			e2.printStackTrace();
 		}
-		invokeSetupPerfEval(input);
 	}
 	
-	public void invokeSetupPerfEval(String input) {
-		switch(Integer.parseInt(input)) {
-		case 1:
-			RockyStorage.presenceBitmap.set(0, RockyStorage.numBlock);
-			break;
-		case 2:
+	public void invokeSetupPerfEval(int percent) {
+		if (percent == 0) {
+			RockyStorage.presenceBitmap.set(0, RockyStorage.numBlock, false);
+		} else if (percent == 100) {
+			RockyStorage.presenceBitmap.clear();
+		} else {
+			int partition = RockyStorage.numBlock * percent / 100;
 			for (int i = 0; i < RockyStorage.numBlock; i++) {
-				if (i % 2 == 0) {
+				if (i % partition == 0) {
 					RockyStorage.presenceBitmap.set(i);
 				} else {
 					RockyStorage.presenceBitmap.clear(i);
 				}
 			}
-			break;
-		case 3:
-			RockyStorage.presenceBitmap.clear();
-			break;
-		default:
-			break;
 		}
 	}
 	
@@ -167,12 +170,27 @@ public class ControlUserInterfaceRunner implements Runnable {
 //		String localBlockSnapshotStoreTableName = "localBlockSnapshotStoreTable";
 //		
 		if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
-			RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, true);
-			RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, true);
-		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB)) {
-			RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, false);
-			RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, false);
+			//RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, true);
+			//RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, true);
+			RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
+			RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB_SEOUL)) {
+			//RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, false);
+			//RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, false);
+			RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, ValueStorageDynamoDB.AWSRegionEnum.SEOUL);
+			RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, ValueStorageDynamoDB.AWSRegionEnum.SEOUL);
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB_LONDON)) {
+			//RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, false);
+			//RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, false);
+			RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, ValueStorageDynamoDB.AWSRegionEnum.LONDON);
+			RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, ValueStorageDynamoDB.AWSRegionEnum.LONDON);
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB_OHIO)) {
+			//RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, false);
+			//RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, false);
+			RockyStorage.cloudEpochBitmaps = new ValueStorageDynamoDB(RockyStorage.cloudEpochBitmapsTableName, ValueStorageDynamoDB.AWSRegionEnum.OHIO);
+			RockyStorage.cloudBlockSnapshotStore = new ValueStorageDynamoDB(RockyStorage.cloudBlockSnapshotStoreTableName, ValueStorageDynamoDB.AWSRegionEnum.OHIO);
 		}
+		
 		try {
 			RockyStorage.localEpochBitmaps = new ValueStorageLevelDB(RockyStorage.localEpochBitmapsTableName);
 			RockyStorage.localBlockSnapshotStore = new ValueStorageLevelDB(RockyStorage.localBlockSnapshotStoreTableName);

@@ -10,6 +10,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import com.amazonaws.client.builder.AwsClientBuilder;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
 import com.amazonaws.services.dynamodbv2.document.DynamoDB;
@@ -45,13 +46,22 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 	String tableName;
 	Table table;
     public Boolean consistHSReads = false;
+    
+    public static enum AWSRegionEnum {LOCAL, SEOUL, LONDON, OHIO};
 	
-	public ValueStorageDynamoDB(String filename, boolean localMode) {
-		if (localMode) {
+	//public ValueStorageDynamoDB(String filename, boolean localMode) {
+	public ValueStorageDynamoDB(String filename, AWSRegionEnum region) {
+		if (region.equals(AWSRegionEnum.LOCAL)) {
 			// To use the local version dynamodb for development
 			client = AmazonDynamoDBClientBuilder.standard().withEndpointConfiguration(
 					new AwsClientBuilder.EndpointConfiguration("http://localhost:8000", "us-east-1"))
 					.build();
+		} else if (region.equals(AWSRegionEnum.SEOUL)) {
+			client = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).build();
+		} else if (region.equals(AWSRegionEnum.LONDON)) {
+			client = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.EU_WEST_2).build();
+		} else if (region.equals(AWSRegionEnum.OHIO)) {
+			client = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.US_EAST_2).build();
 		} else {
 			// To use the actual AWS
 			client = AmazonDynamoDBClientBuilder.defaultClient();
@@ -188,8 +198,8 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 	
 	public static void main(String[] args) throws IOException {
 		
-		ValueStorageDynamoDB historyKeyspace = new ValueStorageDynamoDB("historykeyspace", true);
-		ValueStorageDynamoDB dataKeyspace = new ValueStorageDynamoDB("datakeyspace", true);
+		ValueStorageDynamoDB historyKeyspace = new ValueStorageDynamoDB("historykeyspace", AWSRegionEnum.LOCAL);
+		ValueStorageDynamoDB dataKeyspace = new ValueStorageDynamoDB("datakeyspace", AWSRegionEnum.LOCAL);
 		
 		System.out.println("-----------------------------------------");
 		System.out.println("datakeyspace test");

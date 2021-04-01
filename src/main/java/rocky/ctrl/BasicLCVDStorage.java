@@ -75,13 +75,24 @@ public class BasicLCVDStorage extends FDBStorage {
 	public BasicLCVDStorage(String exportName) {
 		super(exportName);
 		if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
-			pBmStore = new ValueStorageDynamoDB(pBmTableName, true);
-			dBmStore = new ValueStorageDynamoDB(dBmTableName, true);
-			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, true);
-		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB)) {
-			pBmStore = new ValueStorageDynamoDB(pBmTableName, false);
-			dBmStore = new ValueStorageDynamoDB(dBmTableName, false);
-			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, false);			
+			//pBmStore = new ValueStorageDynamoDB(pBmTableName, true);
+			//dBmStore = new ValueStorageDynamoDB(dBmTableName, true);
+			//blockDataStore = new ValueStorageDynamoDB(blockDataTableName, true);
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB_SEOUL)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, ValueStorageDynamoDB.AWSRegionEnum.SEOUL);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, ValueStorageDynamoDB.AWSRegionEnum.SEOUL);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, ValueStorageDynamoDB.AWSRegionEnum.SEOUL);			
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB_LONDON)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, ValueStorageDynamoDB.AWSRegionEnum.LONDON);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, ValueStorageDynamoDB.AWSRegionEnum.LONDON);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, ValueStorageDynamoDB.AWSRegionEnum.LONDON);			
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB_OHIO)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, ValueStorageDynamoDB.AWSRegionEnum.OHIO);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, ValueStorageDynamoDB.AWSRegionEnum.OHIO);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, ValueStorageDynamoDB.AWSRegionEnum.OHIO);			
 		} else {
 			System.err.println("Error: Unknown backendStorageType");
  		   	System.exit(1);
@@ -111,13 +122,24 @@ public class BasicLCVDStorage extends FDBStorage {
 	public BasicLCVDStorage(String exportName, boolean startBasicLCVDThreadsFlag) {
 		super(exportName);
 		if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
-			pBmStore = new ValueStorageDynamoDB(pBmTableName, true);
-			dBmStore = new ValueStorageDynamoDB(dBmTableName, true);
-			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, true);
-		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB)) {
-			pBmStore = new ValueStorageDynamoDB(pBmTableName, false);
-			dBmStore = new ValueStorageDynamoDB(dBmTableName, false);
-			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, false);			
+			//pBmStore = new ValueStorageDynamoDB(pBmTableName, true);
+			//dBmStore = new ValueStorageDynamoDB(dBmTableName, true);
+			//blockDataStore = new ValueStorageDynamoDB(blockDataTableName, true);
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB_SEOUL)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, ValueStorageDynamoDB.AWSRegionEnum.SEOUL);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, ValueStorageDynamoDB.AWSRegionEnum.SEOUL);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, ValueStorageDynamoDB.AWSRegionEnum.SEOUL);			
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB_LONDON)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, ValueStorageDynamoDB.AWSRegionEnum.LONDON);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, ValueStorageDynamoDB.AWSRegionEnum.LONDON);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, ValueStorageDynamoDB.AWSRegionEnum.LONDON);			
+		} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDB_OHIO)) {
+			pBmStore = new ValueStorageDynamoDB(pBmTableName, ValueStorageDynamoDB.AWSRegionEnum.OHIO);
+			dBmStore = new ValueStorageDynamoDB(dBmTableName, ValueStorageDynamoDB.AWSRegionEnum.OHIO);
+			blockDataStore = new ValueStorageDynamoDB(blockDataTableName, ValueStorageDynamoDB.AWSRegionEnum.OHIO);			
 		} else {
 			System.err.println("Error: Unknown backendStorageType");
  		   	System.exit(1);

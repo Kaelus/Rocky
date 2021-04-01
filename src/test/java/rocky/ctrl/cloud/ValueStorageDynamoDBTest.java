@@ -11,7 +11,7 @@ public class ValueStorageDynamoDBTest {
 	
 	@Test
 	public void testPutAndGet() {
-		ValueStorageDynamoDB testStorage = new ValueStorageDynamoDB("testStorage", true);
+		ValueStorageDynamoDB testStorage = new ValueStorageDynamoDB("testStorage", ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
 		byte[] buf = null;
 		try {
 			testStorage.put("" + 777, "hello world".getBytes());
@@ -26,7 +26,7 @@ public class ValueStorageDynamoDBTest {
 
 	@Test
 	public void testDeleteAndGetNonExistKey() {
-		ValueStorageDynamoDB testStorage = new ValueStorageDynamoDB("testStorage", true);
+		ValueStorageDynamoDB testStorage = new ValueStorageDynamoDB("testStorage", ValueStorageDynamoDB.AWSRegionEnum.LOCAL);
 		testStorage.remove("" + 777);
 		byte[] buf = null;
 		try {
