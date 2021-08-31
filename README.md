@@ -2,12 +2,25 @@
 
 Rocky is a distributed replicated block device for tamper and failure resistant EdgeVDI. Rocky uses a replication broker to synchronize disk images across cloudlets, which is the edge datacenter sitting between endpoints and the cloud. Rocky replicates changes made to the disk images as a consistent immutable mutation history consisting of a totally-ordered write sequence. Therefore, it allows data recovery against tampering attacks such as ransomware or the wiper malware attacks or permanent failures such as fire, earthquake or disk worn out.
 
+# Build Environment
+
+We tested with the following versions of software:
+
+1. Ubuntu 16.04
+
+2. Java 8
+
+3. Gradle 2.10
+
+4. foundationdb-client_6.3.15-1_amd64, foundationdb-server_6.3.15-1_amd64
+
+5. Apache Maven 3.3.9
+
 # How to build
 
 `gradle clean fatJar`
 
 # Prerequisites
-0. OS: the followings are tested on Ubuntu 16.04
 
 1. FoundationDB needs to be installed.
    - Follow the instruction at https://apple.github.io/foundationdb/getting-started-linux.html
@@ -15,6 +28,7 @@ Rocky is a distributed replicated block device for tamper and failure resistant 
 2. ndb-client needs to be installed.
    - `sudo apt-get update`
    - `sudo apt-get install nbd nbd-client`
+     - No for disconnecting all nbd-client devices.
 
 3. Need to create a foundationdb volume in advance.
    - Clone the nbd on foudationdb, and go to the project home
@@ -24,19 +38,22 @@ Rocky is a distributed replicated block device for tamper and failure resistant 
        - Fix it to direct to the correct repository by referring to https://mvnrepository.com/artifact/org.foundationdb/fdb-java/5.2.5
        - Then, build (This will create nbdcli.jar under the directory 'target') by `mvn package`
    - To create the volume, follow the instruction at https://github.com/spullara/nbd
-     - `java -jar nbdcli.jar server`
-     - `java -jar nbdcli.jar create -n testing -s 1G`
+     - `java -jar target/nbdcli.jar server`
+     - `java -jar target/nbdcli.jar create -n testing -s 1G`
        - Note 'testing' can be replaced with any volume name
        - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
        - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
 
 # How to run
 
-0. (if testing with local DynamoDB, do the following in the dynamodb home)
-   - `java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb`
+0. Setup a Connector-Cloudlet, a replication broker
+   - We support two types of the backend: dynamoDBLocal and dynamoDBSeoul
+     - if testing with dynamoDBLocal, download dynamoDB first and then do the following in the dynamodb home
+       - `java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb`
+     - if using dynamoDBSeoul, one needs to appropriately setup the environment to use aws
 
 1. Run Rocky Controller (NBD server)
-   - `java -jar `pwd`/build/libs/rocky-code-all-1.0.jar rocky.ctrl.RockyController`
+   - `java -jar `pwd`/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController`
 
 2. Prepare the Rocky Block Device (nbd module & nbd client)
    - `sudo modprobe nbd`
