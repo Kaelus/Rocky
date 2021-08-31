@@ -12,9 +12,8 @@ We tested with the following versions of software:
 
 3. Gradle 2.10
 
-4. foundationdb-client_6.3.15-1_amd64, foundationdb-server_6.3.15-1_amd64
+4. Apache Maven 3.3.9
 
-5. Apache Maven 3.3.9
 
 # How to build
 
@@ -23,7 +22,10 @@ We tested with the following versions of software:
 # Prerequisites
 
 1. FoundationDB needs to be installed.
-   - Follow the instruction at https://apple.github.io/foundationdb/getting-started-linux.html
+   - Reference: https://apple.github.io/foundationdb/getting-started-linux.html
+   - There are two files to install in <RockyHome>/foundationdb: foundationdb-clients_6.2.19-1_amd64.deb, foundationdb-server_6.2.19-1_amd64.deb
+   - `sudo dpkg -i foundationdb-clients_6.2.19-1_amd64.deb \
+   foundationdb-server_6.2.19-1_amd64.deb
 
 2. ndb-client needs to be installed.
    - `sudo apt-get update`
