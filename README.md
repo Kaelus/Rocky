@@ -33,18 +33,22 @@ We tested with the following versions of software:
      - No for disconnecting all nbd-client devices.
 
 3. Need to create a foundationdb volume in advance.
-   - Clone the nbd on foudationdb, and go to the project home
-     - `git clone https://github.com/spullara/nbd.git`
-   - Need to update pom.xml before build:
-     - Find the line for foundationdb
-       - Fix it to direct to the correct repository by referring to https://mvnrepository.com/artifact/org.foundationdb/fdb-java/5.2.5
-       - Then, build (This will create nbdcli.jar under the directory 'target') by `mvn package`
-   - To create the volume, follow the instruction at https://github.com/spullara/nbd
-     - `java -jar target/nbdcli.jar server`
-     - `java -jar target/nbdcli.jar create -n testing -s 1G`
-       - Note 'testing' can be replaced with any volume name
-       - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
-       - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
+   - There is nbdfdb/nbdcli.jar to prepare a volume.
+     - `java -jar nbdfdb/nbdcli.jar server`
+     - `java -jar nbdfdb/nbdcli.jar create -n -testing -s 1G`
+   - If wish to do this by building from the scratch:
+      - Clone the nbd on foudationdb, and go to the project home
+        - `git clone https://github.com/spullara/nbd.git`
+      - Need to update pom.xml before build:
+        - Find the line for foundationdb
+        - Fix it to direct to the correct repository by referring to https://mvnrepository.com/artifact/org.foundationdb/fdb-java/5.2.5
+	- Then, build (This will create nbdcli.jar under the directory 'target') by `mvn package`
+      - To create the volume, follow the instruction at https://github.com/spullara/nbd
+        - `java -jar target/nbdcli.jar server`
+	- `java -jar target/nbdcli.jar create -n testing -s 1G`
+       	  - Note 'testing' can be replaced with any volume name
+       	  - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
+       	  - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
 
 # How to run
 
