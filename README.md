@@ -1,6 +1,6 @@
 # Overview
 
-Rocky provides an block device that replicates blocks on end devices via a cloud service. Rocky does not fully rely on the cloud service. If the cloud service becomes unavailable or the user decides to switch to a different service provider, Rocky can allow the user to restore the full disk image and migrate to another service only with end devices. In a case some blocks are lost and irrecoverable due to the unexpected cloud service failure, Rocky allows the user to still restore the disk image that is conherent but the latest version before the lost blocks are written.  
+Rocky is a distributed replicated block device for tamper and failure resistant EdgeVDI. Rocky uses a replication broker to synchronize disk images across cloudlets, which is the edge datacenter sitting between endpoints and the cloud. Rocky replicates changes made to the disk images as a consistent immutable mutation history consisting of a totally-ordered write sequence. Therefore, it allows data recovery against tampering attacks such as ransomware or the wiper malware attacks or permanent failures such as fire, earthquake or disk worn out.
 
 # How to build
 
