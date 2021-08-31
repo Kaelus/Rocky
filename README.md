@@ -53,7 +53,7 @@ We tested with the following versions of software:
      - if using dynamoDBSeoul, one needs to appropriately setup the environment to use aws
 
 1. Run Rocky Controller (NBD server)
-   - `java -jar `pwd`/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController`
+   - `java -jar \`pwd\`/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController`
 
 2. Prepare the Rocky Block Device (nbd module & nbd client)
    - `sudo modprobe nbd`
