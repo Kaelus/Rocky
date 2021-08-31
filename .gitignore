@@ -6,7 +6,6 @@
 build/
 bin/
 *.log
-*.jar
 *.out
 lib/
 *~
