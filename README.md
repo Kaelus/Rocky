@@ -47,7 +47,7 @@ We tested with the following versions of software:
 # How to run
 
 1. Setup a Connector-Cloudlet, a replication broker
-   - We support two types of the backend: dynamoDBLocal and dynamoDBSeoul
+   - We support two types of the backend in conf/rocky.conf for the parameter backendStorageType: dynamoDBLocal and dynamoDBSeoul
      - if testing with dynamoDBLocal, download dynamoDB first and then do the following in the dynamodb home
        - `java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb`
      - if using dynamoDBSeoul, one needs to appropriately setup the environment to use aws
