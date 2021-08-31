@@ -12,9 +12,6 @@ We tested with the following versions of software:
 
 3. Gradle 2.10
 
-4. Apache Maven 3.3.9
-
-
 # How to build
 
 `gradle clean fatJar`
@@ -37,6 +34,7 @@ We tested with the following versions of software:
      - `java -jar nbdfdb/nbdcli.jar server`
      - `java -jar nbdfdb/nbdcli.jar create -n -testing -s 1G`
    - If wish to do this by building from the scratch:
+      - Need Apache Maven 3.3.9 to build the tool from the source
       - Clone the nbd on foudationdb, and go to the project home
         - `git clone https://github.com/spullara/nbd.git`
       - Need to update pom.xml before build:
