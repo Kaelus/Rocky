@@ -46,16 +46,16 @@ We tested with the following versions of software:
 
 # How to run
 
-0. Setup a Connector-Cloudlet, a replication broker
+1. Setup a Connector-Cloudlet, a replication broker
    - We support two types of the backend: dynamoDBLocal and dynamoDBSeoul
      - if testing with dynamoDBLocal, download dynamoDB first and then do the following in the dynamodb home
        - `java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb`
      - if using dynamoDBSeoul, one needs to appropriately setup the environment to use aws
 
-1. Run Rocky Controller (NBD server)
+2. Run Rocky Controller (NBD server)
    - `java -jar <RockyHome>/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController`
 
-2. Prepare the Rocky Block Device (nbd module & nbd client)
+3. Prepare the Rocky Block Device (nbd module & nbd client)
    - `sudo modprobe nbd`
    - `sudo lsmod | grep nbd`
    - `sudo nbd-client -N <volume name> localhost /dev/nbd0`
