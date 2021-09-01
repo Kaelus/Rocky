@@ -14,6 +14,8 @@ We tested with the following versions of software:
 
 # Prerequisites
 
+Replace <RockyHome> below with the directory path where you cloned the Rocky git repo to.
+
 1. FoundationDB needs to be installed.
    - Reference: https://apple.github.io/foundationdb/getting-started-linux.html
    - There are two files to install in <RockyHome>/foundationdb: foundationdb-clients_6.2.19-1_amd64.deb, foundationdb-server_6.2.19-1_amd64.deb
@@ -23,7 +25,7 @@ We tested with the following versions of software:
 2. ndb-client needs to be installed.
    - `sudo apt-get update`
    - `sudo apt-get install nbd nbd-client`
-     - No for disconnecting all nbd-client devices.
+     - Choose default value, 'yes,' for disconnecting all nbd-client devices.
 
 3. Need to create a foundationdb volume in advance.
    - There is nbdfdb/nbdcli.jar to prepare a volume.
@@ -50,7 +52,7 @@ We tested with the following versions of software:
 
 # How to run
 
-1. Setup a Connector-Cloudlet, a replication broker
+1. Setup a Connector-Cloudlet, a.k.a. a replication broker
    - We support two types of the backend in conf/rocky.conf for the parameter backendStorageType: dynamoDBLocal and dynamoDBSeoul
      - If testing with dynamoDBLocal, download dynamoDB first and then do the following
        - `java -Djava.library.path=./dynamoDB/DynamoDBLocal_lib -jar ./dynamoDB/DynamoDBLocal.jar -sharedDb`
@@ -59,6 +61,9 @@ We tested with the following versions of software:
 
 2. Run Rocky Controller (NBD server)
    - `java -jar <RockyHome>/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController`
+   - To run with configuration file conf/rocky.conf:
+     - `java -jar <RockyHome>/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController conf/rocky.conf`
+     - It will print out configuration parameters and their values
 
 3. Prepare the Rocky Block Device (nbd module & nbd client)
    - `sudo modprobe nbd`
@@ -66,11 +71,20 @@ We tested with the following versions of software:
    - `sudo nbd-client -N <volume name> localhost /dev/nbd0`
      - (testing is one of volume names)
 
-To disconnect the Rocky Block Device from the Rocky server, `sudo nbd-client -d /dev/nbd0`
+4. Switching roles of the Rocky Controller
+   - Once you started the Rocky Controller successfully, you will get a list of commands for you to control the Rocky Controller via ControlUserInterface.
+   - type '2' and enter. It will show the current role.
+   - If 'None' then type '1' to switch to 'NonOwner'
+   - If 'NonOwner' then type '2' to switch to 'Owner'
+   - Make sure the role of RockyController to be Owner before generating any I/O
+
+
+To disconnect the Rocky Block Device from the Rocky Controller, `sudo nbd-client -d /dev/nbd0`
+Note: when you disconnect and try to connect again, it may fail because of "Volume testing is already leased." This is because the lease for the underlying foundataionDB volume 'testing' has not been released yet. Wait for a minute or so, and try again.
 
 To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 
-## To Test
+## To Test: making file system on the block device
 
 - `sudo mkfs.ext4 /dev/nbd0`
 - `sudo mount /dev/nbd0 /tmp`
@@ -78,7 +92,32 @@ To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 - Should be able to see the directory lost+found
 - `sudo umount /tmp`
 
-# To Run multiple Rocky instances on a single host
+## ACSAC21 Evaluation
+
+# To Reproduce the throughput measurement in Section 5.2
+
+1. Make sure the role of the Rocky Controller to be Owner before generating any I/O.
+   - If screw up, bring down the Rocky Controller and disconnect the Rocky Controller from the Rocky block device. Then, restart the Rocky Controller and connect it with the block device again.
+
+2. Configure how much percentage of the blocks present locally to avoid fetching from the replication broker
+   - Select 4 for the Rocky Controller ControlUserInterface
+   - Type in the percentage (e.g., 70 for seventy percent of blocks being present locally)
+
+3. Using 'dd,' generate I/O
+   - To write, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=200 oflag=direct`
+   - To read, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/nbd0 of=/dev/zero bs=10K count=200 iflag=nocache`
+
+
+# To Reproduce the reduction ratio measurement in Section 5.3
+
+1. Make the file system on the Rocky block device and mount it to /tmp, as described in the section 'To Test:...' above.
+
+2. Download an arbitrary photo of size 4.3MB and copy it into the /tmp
+
+3. In Rocky Controller ControlUserInterface, type '8' and '1' to print out the statistics showing how many blocks were written cumulatively and how many blocks to be flushed as mutation snapshots.
+
+
+## (Not for ACSAC21 artifacts) To Run multiple Rocky instances on a single host
 
 In the directory 'conf', there is an example rocky.conf configuration file.
 Use it at your discretion after setting port and lcvdName accordingly.
