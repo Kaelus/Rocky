@@ -68,8 +68,8 @@ Replace <RockyHome> below with the directory path where you cloned the Rocky git
         - `java -jar target/nbdcli.jar server`
 	- `java -jar target/nbdcli.jar create -n testing -s 1G`
 	  - Note 'testing' can be replaced with any volume name
-       	  - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
-       	  - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
+	  - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
+	  - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
 
 # How to build
 
