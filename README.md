@@ -1,3 +1,26 @@
+# ACSAC21 artifacts for Rocky
+
+## Title
+
+Rocky: Replicating Block Devices for Tamper and Failure Resistant Edge-based Virtualized Desktop Infrastructure
+
+## Abstract
+
+This includes both source code of the prototype Rocky and evaluation data.
+     - Software
+       - Rocky Controller source code is included
+       - Other components of Rocky Endpoint are included as executable or .deb
+       - Additionally, DynamoDB is included which is used as a Connector-Cloudlet
+     - Data
+       - Throughput measurement result (section 5.2) is in 363 bytes large file eval/throughput.csv which is in the comma separated value format
+       	 - The first column contains the percentages of blocks present locally
+	 - The second and the third columns shows write throughput in KB/s to compare between the baseline NBD and Rocky implementation
+	 - The fourth and the fifth columns shows read throughput in KB/s to compare between the baseline NBD and Rocky implementation
+       - photo contains the 4.1MB high-resolution .jpg file that can be used to perform the reduction rate measurement (section 5.3)
+
+See the 'Build Environment' section below for dependencies and requirements.
+
+
 # Overview
 
 Rocky is a distributed replicated block device for tamper and failure resistant EdgeVDI. Rocky uses a replication broker to synchronize disk images across cloudlets, which is the edge datacenter sitting between endpoints and the cloud. Rocky replicates changes made to the disk images as a consistent immutable mutation history consisting of a totally-ordered write sequence. Therefore, it allows data recovery against tampering attacks such as ransomware or the wiper malware attacks or permanent failures such as fire, earthquake or disk worn out.
