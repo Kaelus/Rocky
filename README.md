@@ -92,9 +92,9 @@ To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 - Should be able to see the directory lost+found
 - `sudo umount /tmp`
 
-## ACSAC21 Evaluation
+# ACSAC21 Evaluation
 
-# To Reproduce the throughput measurement in Section 5.2
+## To Reproduce the throughput measurement in Section 5.2
 
 Resulting data can be found eval/throughput.csv
 
@@ -110,7 +110,7 @@ Resulting data can be found eval/throughput.csv
    - To read, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/nbd0 of=/dev/zero bs=10K count=200 iflag=nocache`
 
 
-# To Reproduce the reduction ratio measurement in Section 5.3
+## To Reproduce the reduction ratio measurement in Section 5.3
 
 1. Make the file system on the Rocky block device and mount it to /tmp, as described in the section 'To Test:...' above.
 
@@ -119,7 +119,7 @@ Resulting data can be found eval/throughput.csv
 3. In Rocky Controller ControlUserInterface, type '8' and '1' to print out the statistics showing how many blocks were written cumulatively and how many blocks to be flushed as mutation snapshots.
 
 
-## (Not for ACSAC21 artifacts) To Run multiple Rocky instances on a single host
+# (Not for ACSAC21 artifacts) To Run multiple Rocky instances on a single host
 
 In the directory 'conf', there is an example rocky.conf configuration file.
 Use it at your discretion after setting port and lcvdName accordingly.
