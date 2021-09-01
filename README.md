@@ -96,6 +96,8 @@ To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 
 # To Reproduce the throughput measurement in Section 5.2
 
+Resulting data can be found eval/throughput.csv
+
 1. Make sure the role of the Rocky Controller to be Owner before generating any I/O.
    - If screw up, bring down the Rocky Controller and disconnect the Rocky Controller from the Rocky block device. Then, restart the Rocky Controller and connect it with the block device again.
 
@@ -112,7 +114,7 @@ To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 
 1. Make the file system on the Rocky block device and mount it to /tmp, as described in the section 'To Test:...' above.
 
-2. Download an arbitrary photo of size 4.3MB and copy it into the /tmp
+2. Copy a file photo/alvaro-palacios-FCdR-3_9AZk-unsplash.jpg into the /tmp
 
 3. In Rocky Controller ControlUserInterface, type '8' and '1' to print out the statistics showing how many blocks were written cumulatively and how many blocks to be flushed as mutation snapshots.
 
