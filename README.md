@@ -39,7 +39,7 @@ We tested with the following versions of software:
 
 # Prerequisites
 
-Replace <RockyHome> below with the directory path where you cloned the Rocky git repo to.
+Replace \<RockyHome\> below with the directory path where you cloned the Rocky git repo to.
 
 1. FoundationDB needs to be installed.
    - Reference: https://apple.github.io/foundationdb/getting-started-linux.html
