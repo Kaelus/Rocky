@@ -1,8 +1,14 @@
-# ACSAC21 artifacts for Rocky
+# ACSAC21 Artifact for Rocky
 
 ## Title
 
 Rocky: Replicating Block Devices for Tamper and Failure Resistant Edge-based Virtualized Desktop Infrastructure
+
+## Authors
+
+Beom Heyn Kim \<beomheyn.kim@gmail.com\>
+
+Hyoungshick Kim \<hyoung@skku.edu\>
 
 ## Abstract
 
@@ -39,7 +45,7 @@ We tested with the following versions of software:
 
 # Prerequisites
 
-Replace \<RockyHome\> below with the directory path where you cloned the Rocky git repo to.
+Replace \<RockyHome\> below with the directory path where you cloned the Rocky git repo.
 
 1. FoundationDB needs to be installed.
    - Reference: https://apple.github.io/foundationdb/getting-started-linux.html
@@ -146,7 +152,7 @@ Resulting data can be found eval/throughput.csv
 3. In Rocky Controller ControlUserInterface, type '8' and '1' to print out the statistics showing how many blocks were written cumulatively and how many blocks to be flushed as mutation snapshots.
 
 
-# (Not for ACSAC21 artifacts) To Run multiple Rocky instances on a single host
+# (Not necessary) To Run multiple Rocky instances on a single host
 
 In the directory 'conf', there is an example rocky.conf configuration file.
 Use it at your discretion after setting port and lcvdName accordingly.
