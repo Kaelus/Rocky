@@ -82,7 +82,7 @@ Replace <RockyHome> below with the directory path where you cloned the Rocky git
      - If testing with dynamoDBLocal, download dynamoDB first and then do the following
        - `java -Djava.library.path=./dynamoDB/DynamoDBLocal_lib -jar ./dynamoDB/DynamoDBLocal.jar -sharedDb`
      - If using dynamoDBSeoul, one needs to appropriately setup the environment to use aws.
-       - Refer to AWS documentation (https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/SettingUp.DynamoWebService.html)
+       - Refer to AWS documentation (https://tinyurl.com/4d2rvxmj)
        	 - Learn about how to signing up for AWS, getting AWS Access Key and configuring AWS credentials using AWS CLI
        
 
