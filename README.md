@@ -18,7 +18,7 @@ This includes both source code of the prototype Rocky and evaluation data.
      - The first column contains the percentages of blocks present locally
      - The second and the third columns shows write throughput in KB/s to compare between the baseline NBD and Rocky implementation
      - The fourth and the fifth columns shows read throughput in KB/s to compare between the baseline NBD and Rocky implementation
-   - photo contains the 4.1MB high-resolution .jpg file that can be used to perform the reduction rate measurement (section 5.3)
+   - photo contains the 4.1MB high-resolution .jpg file for the reduction rate measurement (section 5.3)
 
 See the 'Build Environment' section below for dependencies and requirements.
 
