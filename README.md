@@ -56,7 +56,7 @@ Replace <RockyHome> below with the directory path where you cloned the Rocky git
    - There is nbdfdb/nbdcli.jar to prepare a volume.
      - `java -jar nbdfdb/nbdcli.jar server`
      - `java -jar nbdfdb/nbdcli.jar create -n -testing -s 1G`
-   - If wish to do this by building from the scratch:
+   - (Not necessary. Just use nbdfdb/nbdcli.jar) If wish to do this by building from the scratch:
       - Need Apache Maven 3.3.9 to build the tool from the source
       - Clone the nbd on foudationdb, and go to the project home
         - `git clone https://github.com/spullara/nbd.git`
