@@ -63,13 +63,13 @@ Replace <RockyHome> below with the directory path where you cloned the Rocky git
       - Need to update pom.xml before build:
         - Find the line for foundationdb
         - Fix it to direct to the correct repository by referring to https://mvnrepository.com/artifact/org.foundationdb/fdb-java/5.2.5
-	- Then, build (This will create nbdcli.jar under the directory 'target') by `mvn package`
-	- To create the volume, follow the instruction at https://github.com/spullara/nbd
-	  - `java -jar target/nbdcli.jar server`
-	  - `java -jar target/nbdcli.jar create -n testing -s 1G`
-	    - Note 'testing' can be replaced with any volume name
-	    - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
-	    - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
+	  - Then, build (This will create nbdcli.jar under the directory 'target') by `mvn package`
+	  - To create the volume, follow the instruction at https://github.com/spullara/nbd
+	    - `java -jar target/nbdcli.jar server`
+	    - `java -jar target/nbdcli.jar create -n testing -s 1G`
+	      - Note 'testing' can be replaced with any volume name
+	      - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
+	      - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
 
 # How to build
 
