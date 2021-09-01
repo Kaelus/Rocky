@@ -11,7 +11,7 @@ This includes both source code of the prototype Rocky and evaluation data.
 1. Software
    - Rocky Controller source code is included
    - Other components of Rocky Endpoint are included as executable or .deb
-   - Additionally, DynamoDB is included which is used as a Connector-Cloudlet
+   - Additionally, DynamoDB is included which is used as a Connector-Cloudlet (replication broker)
 
 2. Data
    - Throughput measurement result (section 5.2) is in 363 bytes large file eval/throughput.csv which is in the comma separated value format
