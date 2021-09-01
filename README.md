@@ -12,10 +12,6 @@ We tested with the following versions of software:
 
 3. Gradle 2.10
 
-# How to build
-
-`gradle clean fatJar`
-
 # Prerequisites
 
 1. FoundationDB needs to be installed.
@@ -48,13 +44,18 @@ We tested with the following versions of software:
        	  - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
        	  - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
 
+# How to build
+
+`gradle clean fatJar`
+
 # How to run
 
 1. Setup a Connector-Cloudlet, a replication broker
    - We support two types of the backend in conf/rocky.conf for the parameter backendStorageType: dynamoDBLocal and dynamoDBSeoul
-     - if testing with dynamoDBLocal, download dynamoDB first and then do the following in the dynamodb home
-       - `java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb`
-     - if using dynamoDBSeoul, one needs to appropriately setup the environment to use aws
+     - If testing with dynamoDBLocal, download dynamoDB first and then do the following
+       - `java -Djava.library.path=./dynamoDB/DynamoDBLocal_lib -jar ./dynamoDB/DynamoDBLocal.jar -sharedDb`
+     - If using dynamoDBSeoul, one needs to appropriately setup the environment to use aws.
+       
 
 2. Run Rocky Controller (NBD server)
    - `java -jar <RockyHome>/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController`
@@ -73,7 +74,8 @@ To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 
 - `sudo mkfs.ext4 /dev/nbd0`
 - `sudo mount /dev/nbd0 /tmp`
-- `ls`
+- `ls /tmp`
+- Should be able to see the directory lost+found
 - `sudo umount /tmp`
 
 # To Run multiple Rocky instances on a single host
