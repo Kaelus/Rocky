@@ -131,7 +131,7 @@ To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 
 Resulting data can be found eval/throughput.csv
 
-1. Make sure the role of the Rocky Controller to be Owner before generating any I/O.
+1. Make sure the role of the Rocky Controller to be Owner before generating any I/O. Also, try this with dynamoDBSeoul
    - If screw up, bring down the Rocky Controller and disconnect the Rocky Controller from the Rocky block device. Then, restart the Rocky Controller and connect it with the block device again.
 
 2. To initialize the disk to avoid reading null, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=300 oflag=direct`
@@ -144,6 +144,7 @@ Resulting data can be found eval/throughput.csv
    - To write, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=200 oflag=direct`
    - To read, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/nbd0 of=/dev/zero bs=10K count=200 iflag=nocache`
 
+5. Repeat 3 and 4 for different percentages of blocks present locally and for different operation types, either write or read.
 
 ## To Reproduce the reduction ratio measurement in Section 5.3
 
