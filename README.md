@@ -85,7 +85,7 @@ Replace \<RockyHome\> below with the directory path where you cloned the Rocky g
 
 1. Setup a Connector-Cloudlet, a.k.a. a replication broker
    - We support two types of the backend in conf/rocky.conf for the parameter backendStorageType: dynamoDBLocal and dynamoDBSeoul
-     - If testing with dynamoDBLocal, download dynamoDB first and then do the following
+     - If testing with dynamoDBLocal, download dynamoDB first, setup the environment following (https://tinyurl.com/k34xbtm8) and then do the following
        - `java -Djava.library.path=./dynamoDB/DynamoDBLocal_lib -jar ./dynamoDB/DynamoDBLocal.jar -sharedDb`
      - If using dynamoDBSeoul, one needs to appropriately setup the environment to use aws.
        - Refer to AWS documentation (https://tinyurl.com/4d2rvxmj)
