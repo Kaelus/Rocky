@@ -134,12 +134,13 @@ Resulting data can be found eval/throughput.csv
 1. Make sure the role of the Rocky Controller to be Owner before generating any I/O.
    - If screw up, bring down the Rocky Controller and disconnect the Rocky Controller from the Rocky block device. Then, restart the Rocky Controller and connect it with the block device again.
 
-2. Configure how much percentage of the blocks present locally to avoid fetching from the replication broker
+2. To initialize the disk to avoid reading null, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=300 oflag=direct`
+
+3. Configure how much percentage of the blocks present locally to avoid fetching from the replication broker
    - Select 4 for the Rocky Controller ControlUserInterface
    - Type in the percentage (e.g., 70 for seventy percent of blocks being present locally)
 
-3. Using 'dd,' generate I/O
-   - To initialize the disk to avoid reading null, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=300 oflag=direct`
+4. Using 'dd,' generate I/O
    - To write, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=200 oflag=direct`
    - To read, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/nbd0 of=/dev/zero bs=10K count=200 iflag=nocache`
 
