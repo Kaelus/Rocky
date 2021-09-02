@@ -85,7 +85,7 @@ Replace \<RockyHome\> below with the directory path where you cloned the Rocky g
 
 1. Setup a Connector-Cloudlet, a.k.a. a replication broker
    - We support two types of the backend in conf/rocky.conf for the parameter backendStorageType: dynamoDBLocal and dynamoDBSeoul
-     - If testing with dynamoDBLocal, download dynamoDB first, setup the environment following (https://tinyurl.com/k34xbtm8) and then do the following
+     - If testing with dynamoDBLocal, download dynamoDB first, setup the environment as the following link https://tinyurl.com/k34xbtm8 and then do the following
        - `java -Djava.library.path=./dynamoDB/DynamoDBLocal_lib -jar ./dynamoDB/DynamoDBLocal.jar -sharedDb`
      - If using dynamoDBSeoul, one needs to appropriately setup the environment to use aws.
        - Refer to AWS documentation (https://tinyurl.com/4d2rvxmj)
@@ -139,6 +139,7 @@ Resulting data can be found eval/throughput.csv
    - Type in the percentage (e.g., 70 for seventy percent of blocks being present locally)
 
 3. Using 'dd,' generate I/O
+   - To initialize the disk to avoid reading null, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=300 oflag=direct`
    - To write, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=200 oflag=direct`
    - To read, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/nbd0 of=/dev/zero bs=10K count=200 iflag=nocache`
 
