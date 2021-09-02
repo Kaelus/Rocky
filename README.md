@@ -152,7 +152,7 @@ Resulting data can be found eval/throughput.csv
 
 2. Copy a file photo/alvaro-palacios-FCdR-3_9AZk-unsplash.jpg into the /tmp
 
-3. In Rocky Controller ControlUserInterface, type '8' and '1' to print out the statistics showing how many blocks were written cumulatively and how many blocks to be flushed as mutation snapshots.
+3. In Rocky Controller ControlUserInterface, type '8' and '1' to print out the statistics showing how many blocks were written cumulatively ('Number of requested block writes') and how many blocks to be flushed as mutation snapshots ('Number of blocks for a Mutation Snapshot').
 
 
 # (Not necessary) To Run multiple Rocky instances on a single host
