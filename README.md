@@ -107,8 +107,8 @@ Replace \<RockyHome\> below with the directory path where you cloned the Rocky g
 4. Switching roles of the Rocky Controller
    - Once you started the Rocky Controller successfully, you will get a list of commands for you to control the Rocky Controller via ControlUserInterface.
    - type '2' and enter. It will show the current role.
-   - If 'None' then type '1' to switch to 'NonOwner'
-   - If 'NonOwner' then type '2' to switch to 'Owner'
+   - If 'None' then type '2' to switch to 'NonOwner'
+   - If 'NonOwner' then type '3' to switch to 'Owner'
    - Make sure the role of RockyController to be Owner before generating any I/O
 
 
