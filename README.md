@@ -61,7 +61,7 @@ Replace \<RockyHome\> below with the directory path where you cloned the Rocky g
 3. Need to create a foundationdb volume in advance.
    - There is nbdfdb/nbdcli.jar to prepare a volume.
      - `java -jar nbdfdb/nbdcli.jar server`
-     - `java -jar nbdfdb/nbdcli.jar create -n -testing -s 1G`
+     - `java -jar nbdfdb/nbdcli.jar create -n testing -s 1G`
    - (Not necessary. Just use nbdfdb/nbdcli.jar) If wish to do this by building from the scratch:
       - Need Apache Maven 3.3.9 to build the tool from the source
       - Clone the nbd on foudationdb, and go to the project home
@@ -76,6 +76,23 @@ Replace \<RockyHome\> below with the directory path where you cloned the Rocky g
 	      - Note 'testing' can be replaced with any volume name
 	      - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
 	      - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
+	    - Other useful commands for nbdcli.jar is described in its usage messages:
+	    ---
+	    '''
+	    Usage: nbdfdb.cli.NBDCLI [command name]
+	    create: Usage: nbdfdb.cli.CreateCommand
+	      -exportName (-n) [String] Name of the volume to create
+	      -size (-s) [String] Size in bytes of the volume, can use K, M, G, or T units.
+	      -blockSize (-b) [Integer] Block size of the volume (512)
+	    delete: Usage: nbdfdb.cli.DeleteCommand
+	      -exportName (-n) [String] Name of the volume to delete
+	    snapshot: Usage: nbdfdb.cli.SnapshotCommand
+	      -exportName (-n) [String] Name of the snapshot volume to create
+	      -volumeName (-v) [String] Name of the volume to snapshot
+	    list: Usage: nbdfdb.cli.ListCommand
+	    server: Usage: nbdfdb.cli.ServerCommand
+	    '''
+	    ---		
 
 # How to build
 

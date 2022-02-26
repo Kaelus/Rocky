@@ -98,7 +98,10 @@ public class RockyController {
 	          // TODO: interpret the client flags.
 	          int clientFlags = in.readInt();
 	          long magic = in.readLong();
+	          System.out.println("BK: magic=" + magic);
+	          System.out.println("BK: magic(hex)=" + Long.toHexString(magic));
 	          int opt = in.readInt();
+	          System.out.println("BK: opt=" + opt);
 	          if (opt != NBD_OPT_EXPORT_NAME) {
 	            throw new RuntimeException("We support only EXPORT options");
 	          }
