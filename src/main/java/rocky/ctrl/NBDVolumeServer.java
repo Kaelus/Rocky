@@ -101,8 +101,7 @@ public class NBDVolumeServer implements Runnable {
             if (RockyStorage.debugPrintoutFlag) {
             	log.info("Reading " + buffer.length + " from " + offset);
             }
-            //storage.read(buffer, offset.intValue()).thenApply($ -> {
-            storage.read(buffer, offset.longValue()).thenApply($ -> {
+            storage.read(buffer, offset.intValue()).thenApply($ -> {
               synchronized (out) {
                 try {
                   out.write(NBD_REPLY_MAGIC_BYTES);
@@ -124,8 +123,7 @@ public class NBDVolumeServer implements Runnable {
             if (RockyStorage.debugPrintoutFlag) {
             	log.info("Writing " + buffer.length + " to " + offset);
             }
-            //storage.write(buffer, offset.intValue()).thenApply($ -> {
-            storage.write(buffer, offset.longValue()).thenApply($ -> {
+            storage.write(buffer, offset.intValue()).thenApply($ -> {
               try {
                 writeReplyHeaderAndFlush(handle);
               } catch (IOException e) {
