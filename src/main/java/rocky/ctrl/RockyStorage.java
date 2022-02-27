@@ -13,6 +13,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import com.google.common.primitives.UnsignedLong;
+
 import rocky.ctrl.RockyController.RockyControllerRoleType;
 import rocky.ctrl.RockyStorage.CloudFlusher;
 import rocky.ctrl.cloud.GenericKeyValueStore;
@@ -379,9 +381,11 @@ public class RockyStorage extends FDBStorage {
 				}
 			}
 			
+			//UnsignedLong offsetUL = UnsignedLong.fromLongBits(offset);
 			if (debugPrintoutFlag) {
 				System.out.println("write entered. buffer size=" + buffer.length);
 				System.out.println("offset=" + offset);
+				//System.out.println("offsetUL(unsigned long)=" + offsetUL);
 			}
 			
 			long firstBlock = offset / blockSize;
@@ -392,7 +396,19 @@ public class RockyStorage extends FDBStorage {
 		    } else {
 		    	lastBlock = (offset + length) / blockSize;
 		    }
-		    //long lastBlock = (offset + length) / blockSize;
+			//long lastBlock = (offset + length) / blockSize;
+			
+//			UnsignedLong blockSizeUL = UnsignedLong.fromLongBits(blockSize);
+//			long firstBlock = offsetUL.dividedBy(blockSizeUL).longValue();
+//			int length = buffer.length;
+//			UnsignedLong lengthUL = UnsignedLong.fromLongBits(length);
+//			long lastBlock = 0;
+//		    if (length % blockSize == 0) {
+//		    	lastBlock = offsetUL.plus(lengthUL).dividedBy(blockSizeUL).minus(UnsignedLong.fromLongBits(1)).longValue();
+//		    } else {
+//		    	lastBlock = offsetUL.plus(lengthUL).dividedBy(blockSizeUL).longValue();
+//		    }
+
 		    
 		    if (debugPrintoutFlag) {
 		    	System.out.println("firstBlock=" + firstBlock + " lastBlock=" + lastBlock + " length=" + length);

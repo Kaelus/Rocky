@@ -13,6 +13,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import com.google.common.primitives.UnsignedLong;
+
 import rocky.ctrl.RockyController.RockyControllerRoleType;
 import rocky.ctrl.cloud.GenericKeyValueStore;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
@@ -356,7 +358,7 @@ public class BasicLCVDStorage extends FDBStorage {
 		
 		System.out.println("write entered. buffer size=" + buffer.length);
 		System.out.println("offset=" + offset);
-		
+
 		long firstBlock = offset / blockSize;
 		int length = buffer.length;
 	    long lastBlock = 0;
@@ -365,6 +367,7 @@ public class BasicLCVDStorage extends FDBStorage {
 	    } else {
 	    	lastBlock = (offset + length) / blockSize;
 	    }
+		
 	    //long lastBlock = (offset + length) / blockSize;
 	    
 	    System.out.println("firstBlock=" + firstBlock + " lastBlock=" + lastBlock + " length=" + length);
