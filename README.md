@@ -171,7 +171,6 @@ Resulting data can be found eval/throughput.csv
 
 3. In Rocky Controller ControlUserInterface, type '8' and '1' to print out the statistics showing how many blocks were written cumulatively ('Number of requested block writes') and how many blocks to be flushed as mutation snapshots ('Number of blocks for a Mutation Snapshot').
 
-
 # (Not necessary) To Run multiple Rocky instances on a single host
 
 In the directory 'conf', there is an example rocky.conf configuration file.
