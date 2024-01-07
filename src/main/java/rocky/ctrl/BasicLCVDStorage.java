@@ -427,13 +427,20 @@ public class BasicLCVDStorage extends FDBStorage {
 //		// TODO Auto-generated method stub
 //		return null;
 
+		// It seems nbd-client can send flush request spontaneously.
+					// There is no way we can enforce the nbd-client not to send the flush
+					// when this rocky node's role is non-owner.
+					// We guard the data on non-owern to be read-only by disallowing
+					// write request when this rocky node's role is non-owner.
+					// Then, the flush on non-owner actually flush nothing (there is no write to flush)
+		/*
 		synchronized(roleSwitcherThread) {
 			if (!RockyController.role.equals(RockyControllerRoleType.Owner)) {
 				System.err.println("ASSERT: flush can be served only by the Owner");
 				System.err.println("currently, my role=" + RockyController.role);
 				return null;
 			}
-		}
+		}*/
 		
 		return super.flush();
 	}

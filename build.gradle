@@ -20,9 +20,11 @@ java {
      targetCompatibility = JavaVersion.VERSION_1_8
 }
 
+
 //create a single Jar with all dependencies
 task fatJar(type: Jar) {
      zip64 true
+     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
      group = 'rocky'
 	 description = 'rocky fatJar build task'
      manifest {
@@ -32,7 +34,12 @@ task fatJar(type: Jar) {
      }
      //baseName = project.name + '-all'
      archiveBaseName = project.name + '-all'
-     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+     from {
+     	  //configurations.compile.collect {
+	  configurations.compileClasspath.collect {
+	  				 it.isDirectory() ? it : zipTree(it)
+					 }
+	}
      with jar
 }
 
