@@ -1,8 +1,14 @@
-# Rocky: Ransomware Countermeasures for Edge-based Virtualized Desktop Infrastructure
+# ACSAC21 Artifact for Rocky
+
+## Title
+
+Rocky: Replicating Block Devices for Tamper and Failure Resistant Edge-based Virtualized Desktop Infrastructure
 
 ## Authors
 
-Beom Heyn Kim \<beomheyn.kim@gmail.com\> at Cloud Systems Lab, Hanyang University ERICA
+Beom Heyn Kim \<beomheyn.kim@gmail.com\>
+
+Hyoungshick Kim \<hyoung@skku.edu\>
 
 ## Abstract
 
@@ -31,11 +37,11 @@ Rocky is a distributed replicated block device for tamper and failure resistant 
 
 We tested with the following versions of software:
 
-1. Ubuntu 22.04
+1. Ubuntu 16.04
 
-2. Java 11
+2. Java 8
 
-3. Gradle 8.5
+3. Gradle 2.10
 
 # Prerequisites
 
@@ -56,7 +62,7 @@ Replace \<RockyHome\> below with the directory path where you cloned the Rocky g
    - There is nbdfdb/nbdcli.jar to prepare a volume.
      - `java -jar nbdfdb/nbdcli.jar server`
      - `java -jar nbdfdb/nbdcli.jar create -n testing -s 1G`
-   - (NOT UPDATED YET. DO THE FOLLOWING ON YOUR OWN RISK. Not necessary. Just use nbdfdb/nbdcli.jar) If wish to do this by building from the scratch:
+   - (Not necessary. Just use nbdfdb/nbdcli.jar) If wish to do this by building from the scratch:
       - Need Apache Maven 3.3.9 to build the tool from the source
       - Clone the nbd on foudationdb, and go to the project home
         - `git clone https://github.com/spullara/nbd.git`
@@ -112,7 +118,7 @@ Replace \<RockyHome\> below with the directory path where you cloned the Rocky g
 3. Prepare the Rocky Block Device (nbd module & nbd client)
    - `sudo modprobe nbd`
    - `sudo lsmod | grep nbd`
-   - `sudo nbd-client -g -N <volume name> localhost /dev/nbd0`
+   - `sudo nbd-client -N <volume name> localhost /dev/nbd0`
      - (testing is one of volume names)
 
 4. Switching roles of the Rocky Controller
@@ -136,7 +142,7 @@ To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
 - Should be able to see the directory lost+found
 - `sudo umount /tmp`
 
-# ACSAC21 Evaluation (NOT UPDATED YET. DO THE FOLLOWING ON YOUR OWN RISK)
+# ACSAC21 Evaluation
 
 ## To Reproduce the throughput measurement in Section 5.2
 
