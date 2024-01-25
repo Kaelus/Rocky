@@ -391,15 +391,15 @@ public class RockyStorage extends FDBStorage {
 			long firstBlock = offset / blockSize;
 			int length = buffer.length;
 		    long lastBlock = 0;
-		    if (length % blockSize == 0) {
-			if ((offset + length) / blockSize == 0) {
-			    lastBlock = firstBlock;
- 		    	} else {
-			    lastBlock = (offset + length) / blockSize - 1;
- 		    	}
-		    } else {
-		    	lastBlock = (offset + length) / blockSize;
-		    }
+			if (length % blockSize == 0) {
+				if ((offset + length) / blockSize == 0) {
+					lastBlock = firstBlock;
+				} else {
+					lastBlock = (offset + length) / blockSize - 1;
+				}
+			} else {
+				lastBlock = (offset + length) / blockSize;
+			}
 		    //long lastBlock = (offset + length) / blockSize;
 		    
 		    if (debugPrintoutFlag) {
