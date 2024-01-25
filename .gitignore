@@ -11,8 +11,9 @@ lib/
 *~
 .gradle/
 run/
-localBlockSnapshotStoreTable/
-versionMapTable/
-localEpochBitmapsTable/
+*localBlockSnapshotStoreTable/
+*versionMapTable/
+*localEpochBitmapsTable/
 inputFiles/
 shared-local-instance.db
+\#*

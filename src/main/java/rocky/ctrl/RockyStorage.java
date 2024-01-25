@@ -42,11 +42,11 @@ public class RockyStorage extends FDBStorage {
 		public static BitSet dirtyBitmap;
 
 		//public String pBmTableName = "presenceBitmapTable";
-		public static String cloudEpochBitmapsTableName = "cloudEpochBitmapsTable";
-		public static String localEpochBitmapsTableName = "localEpochBitmapsTable";
-		public static String cloudBlockSnapshotStoreTableName = "cloudBlockSnapshotStoreTable";
-		public static String versionMapTableName = "versionMapTable";
-		public static String localBlockSnapshotStoreTableName = "localBlockSnapshotStoreTable";
+		public static String cloudEpochBitmapsTableName;
+		public static String localEpochBitmapsTableName;
+		public static String cloudBlockSnapshotStoreTableName;
+		public static String versionMapTableName;
+		public static String localBlockSnapshotStoreTableName;
 		
 		//public GenericKeyValueStore pBmStore;
 		public static GenericKeyValueStore cloudEpochBitmaps;
@@ -96,6 +96,12 @@ public class RockyStorage extends FDBStorage {
 		
 		public RockyStorage(String exportName) {
 			super(exportName);
+			cloudEpochBitmapsTableName = exportName + "-cloudEpochBitmapsTable";
+			localEpochBitmapsTableName = exportName + "-localEpochBitmapsTable";
+			cloudBlockSnapshotStoreTableName = exportName + "-cloudBlockSnapshotStoreTable";
+			versionMapTableName = exportName + "-versionMapTable";
+			localBlockSnapshotStoreTableName = exportName + "-localBlockSnapshotStoreTable";
+			
 			System.out.println("RockyStorage constructor entered");
 			if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
 				//pBmStore = new ValueStorageDynamoDB(pBmTableName, true);

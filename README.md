@@ -98,10 +98,14 @@ Replace \<RockyHome\> below with the directory path where you cloned the Rocky g
    - We support two types of the backend in conf/rocky.conf for the parameter backendStorageType: dynamoDBLocal and dynamoDBSeoul
      - If testing with dynamoDBLocal, download dynamoDB first, setup the environment as the following link https://tinyurl.com/k34xbtm8 and then do the following
        - `java -Djava.library.path=./dynamoDB/DynamoDBLocal_lib -jar ./dynamoDB/DynamoDBLocal.jar -sharedDb`
+       	 - Few useful commands:
+	       - To list all tables:
+	       	 - `aws dynamodb list-tables --endpoint-url http://localhost:8000`
+	       - To delete tables:
+	       	 - `aws dynamodb delete-table --table-name cloudBlockSnapshotStoreTable --endpoint-url http://localhost:8000`
      - If using dynamoDBSeoul, one needs to appropriately setup the environment to use aws.
        - Refer to AWS documentation (https://tinyurl.com/4d2rvxmj)
        	 - Learn about how to signing up for AWS, getting AWS Access Key and configuring AWS credentials using AWS CLI
-       
 
 2. Run Rocky Controller (NBD server)
    - `java -jar <RockyHome>/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController`
