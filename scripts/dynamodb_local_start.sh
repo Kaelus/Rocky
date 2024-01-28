@@ -5,12 +5,14 @@ working_dir=..
 
 test -d $working_dir/data && echo "data path is confirmed.."
 if [ $? -gt 0 ]; then
-    echo "ERROR. Check if ../data exists!"
+    echo "ERROR.$working_dir/data does not exist!"
+    exit 1
 fi
 
 test -d $rocky_home/dynamoDB && echo "rocky home dynamodb path is confirmed.."
 if [ $? -gt 0 ]; then
-    echo "ERROR. Check if $rocky_home/dynamoDB exists!"
+    echo "ERROR. $rocky_home/dynamoDB does not exist!"
+    exit 1
 fi
 
 mkdir -p $working_dir/data/0

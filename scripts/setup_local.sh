@@ -20,6 +20,10 @@ cp ./*.sh $script_dir_dst/.
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/dynamodb_local_start.sh
 sed -i -e "4s|.*|working_dir=$working_dir|" $script_dir_dst/dynamodb_local_start.sh
 
+sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/fdb_create_volume.sh
+
+sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/rocky_start.sh
+
 i=0
 while [ $i -lt $num_node ]; do
     test -d $conf_dir/$i && rm -rf $conf_dir/$i

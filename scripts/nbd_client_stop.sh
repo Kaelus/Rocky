@@ -9,4 +9,3 @@ if [ $# -eq 1 ]; then
 else
     sudo nbd-client -d /dev/nbd0
 fi
-
