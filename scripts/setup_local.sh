@@ -15,7 +15,15 @@ conf_template_dir=`dirname $0`/../conf
 
 test -d $script_dir_dst && rm -rf $script_dir_dst
 mkdir -p $script_dir_dst
-cp ./*.sh $script_dir_dst/.
+cp ./dynamodb_local_start.sh $script_dir_dst/.
+cp ./dynamodb_local_stop.sh $script_dir_dst/.
+cp ./fdb_create_volume.sh $script_dir_dst/.
+cp ./nbd_client_start.sh $script_dir_dst/.
+cp ./nbd_client_stop.sh $script_dir_dst/.
+cp ./rocky_start.sh $script_dir_dst/.
+cp ./rocky_stop.sh $script_dir_dst/.
+cp ./run_local.sh $script_dir_dst/.
+cp ./stop_local.sh $script_dir_dst/.
 
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/dynamodb_local_start.sh
 sed -i -e "4s|.*|working_dir=$working_dir|" $script_dir_dst/dynamodb_local_start.sh
