@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ $# -lt 1 ]; then
-    echo "usage: delete_fdb_volume.sh <volume_name>"
+    echo "usage: fdb_delete_volume.sh <volume_name>"
     exit 1
 fi
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ $# -lt 2 ]; then
-    echo "usage: create_fdb_volume.sh <volume_name> <volume_size>"
+    echo "usage: fdb_create_volume.sh <volume_name> <volume_size>"
     exit 1
 fi
 
