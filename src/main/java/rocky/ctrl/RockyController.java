@@ -33,7 +33,8 @@ public class RockyController {
 
 	private static Logger log = Logger.getLogger("NBD");
 	
-	private static Integer port;
+	private static String myIP;
+	private static Integer myPort;
 
 	public static String nodeID;
 	
@@ -55,7 +56,8 @@ public class RockyController {
 	public static void main (String args[]) throws IOException {
 		System.out.println("Hello, Rocky");
 		//default variable settings
-		port = 10809;
+		myIP = "127.0.0.1";
+		myPort = 10809;
 		rockyMode = RockyModeType.Rocky;
 		backendStorage = BackendStorageType.DynamoDBLocal;
 		role = RockyControllerRoleType.None;
@@ -69,18 +71,19 @@ public class RockyController {
 			System.out.println("given config file=" + args[1]);
 			parseRockyControllerConfig(args[1]);
 		}
-		nodeID = "node" + getProcID();
-
+		//nodeID = "node" + getProcID();
+		nodeID = myIP + ":" + myPort;
+		
 		//print out variable settings
 		System.out.println("nodeID=" + nodeID);
-		System.out.println("port=" + port);
+		System.out.println("port=" + myPort);
 		System.out.println("rockyMode=" + rockyMode);
 		System.out.println("backendStorageType=" + backendStorage);
 
 		//start
 		ExecutorService es = Executors.newCachedThreadPool();
 	    log.info("Listening for nbd-client connections");
-	    ServerSocket ss = new ServerSocket(port);
+	    ServerSocket ss = new ServerSocket(myPort);
 	    while (true) {
 	      Socket accept = ss.accept();
 	      es.submit(() -> {
@@ -145,12 +148,14 @@ public class RockyController {
 		try (BufferedReader br = new BufferedReader(new FileReader(configFile))) {
 		    String line;
 		    while ((line = br.readLine()) != null) {
-		       if (line.startsWith("port")) {
-		    	   String[] tokens = line.split("=");
-		    	   String portStr = tokens[1];
-		    	   port = Integer.parseInt(portStr);
-		    	   System.out.println("port=" + port);
-		       } else if (line.startsWith("LCVDName")) {
+		    	if (line.startsWith("ip")) {
+					String[] tokens = line.split("=");
+					String ipPortStr = tokens[1];
+					String[] ipPortStrArr = ipPortStr.split(":");
+					myIP = ipPortStrArr[0];
+					myPort = Integer.parseInt(ipPortStrArr[1]);
+					nodeID = myIP + ":" + myPort;					
+				} else if (line.startsWith("LCVDName")) {
 		    	   String[] tokens = line.split("=");
 		    	   lcvdName = tokens[1];
 		    	   System.out.println("LCVDName=" + lcvdName);
