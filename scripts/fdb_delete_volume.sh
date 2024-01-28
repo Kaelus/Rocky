@@ -5,9 +5,11 @@ if [ $# -lt 1 ]; then
     exit 1
 fi
 
-echo "Volumes before deleting:"
-java -jar ../nbdfdb/nbdcli.jar list
-echo "Deleting the volume=$1"
-java -jar ../nbdfdb/nbdcli.jar delete -n $1
-echo "Volumes after deleting:"
-java -jar ../nbdfdb/nbdcli.jar list
+echo "Checking if the volume $1 exists before deleting:"
+java -jar ../nbdfdb/nbdcli.jar list | grep $1
+if [ $? -gt 0 ]; then
+    echo "There is no Volume=$1 existing!"
+else
+    echo "Deleting the volume=$1"
+    java -jar ../nbdfdb/nbdcli.jar delete -n $1
+fi

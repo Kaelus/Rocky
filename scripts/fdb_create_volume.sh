@@ -5,8 +5,13 @@ if [ $# -lt 2 ]; then
     exit 1
 fi
 
-java -jar ../nbdfdb/nbdcli.jar server
-echo "Creating the volume=$1 of size=$2"
-java -jar ../nbdfdb/nbdcli.jar create -n $1 -s $2
-echo "Volumes after creating:"
-java -jar ../nbdfdb/nbdcli.jar list
+#java -jar ../nbdfdb/nbdcli.jar server &
+java -jar ../nbdfdb/nbdcli.jar list | grep $1
+if [ $? -gt 0 ]; then
+    echo "Creating the volume=$1 of size=$2.."
+    java -jar ../nbdfdb/nbdcli.jar create -n $1 -s $2
+else
+    echo "The volume $1 already exists!"
+fi
+#echo "Done. Stopping the fdb server.."
+#kill $(jps | grep 'nbdcli.jar' | awk '{print $1}')
