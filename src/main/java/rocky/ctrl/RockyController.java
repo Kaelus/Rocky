@@ -33,12 +33,15 @@ public class RockyController {
 
 	private static Logger log = Logger.getLogger("NBD");
 	
-	private static String myIP;
-	private static Integer myPort;
+	public static final Integer defaultPort = 10810;
+	public static String myIP;
+	public static Integer myPort;
 
 	public static String nodeID;
 	
 	public static String lcvdName;
+	
+	public static String workingDir;
 	
 	public enum RockyModeType {Origin, Rocky, Unknown};
 	public static RockyModeType rockyMode; 
@@ -57,12 +60,13 @@ public class RockyController {
 		System.out.println("Hello, Rocky");
 		//default variable settings
 		myIP = "127.0.0.1";
-		myPort = 10809;
+		myPort = defaultPort;
 		rockyMode = RockyModeType.Rocky;
 		backendStorage = BackendStorageType.DynamoDBLocal;
 		role = RockyControllerRoleType.None;
 		epochPeriod = 30000; // 30sec
 		prefetchPeriod = 300000; // 5min
+		workingDir = ".";
 		
 		//update variables using config if given
 		if (args.length < 2) {
@@ -79,6 +83,7 @@ public class RockyController {
 		System.out.println("port=" + myPort);
 		System.out.println("rockyMode=" + rockyMode);
 		System.out.println("backendStorageType=" + backendStorage);
+		System.out.println("workingDir=" + workingDir);
 
 		//start
 		ExecutorService es = Executors.newCachedThreadPool();
@@ -155,10 +160,10 @@ public class RockyController {
 					myIP = ipPortStrArr[0];
 					myPort = Integer.parseInt(ipPortStrArr[1]);
 					nodeID = myIP + ":" + myPort;					
-				} else if (line.startsWith("LCVDName")) {
+				} else if (line.startsWith("lcvdName")) {
 		    	   String[] tokens = line.split("=");
 		    	   lcvdName = tokens[1];
-		    	   System.out.println("LCVDName=" + lcvdName);
+		    	   System.out.println("lcvdName=" + lcvdName);
 		       } else if (line.startsWith("rockyMode")) {
 		    	   String[] tokens = line.split("=");
 		    	   String rockyModeTypeStr = tokens[1];
@@ -201,6 +206,12 @@ public class RockyController {
 		    	   String[] tokens = line.split("=");
 		    	   String prefetchPeriodStr = tokens[1];
 		    	   prefetchPeriod = Integer.parseInt(prefetchPeriodStr);
+		       } else if (line.startsWith("workingDir")) {
+		    	   String[] tokens = line.split("=");
+		    	   workingDir = tokens[1];
+		       } else if (line.startsWith("debugFlag")) {
+		    	   String[] tokens = line.split("=");
+		    	   RockyStorage.debugPrintoutFlag = Boolean.parseBoolean(tokens[1]);
 		       }
 		    }
 		} catch (FileNotFoundException e) {

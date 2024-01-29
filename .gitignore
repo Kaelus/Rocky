@@ -17,3 +17,4 @@ run/
 inputFiles/
 shared-local-instance.db
 \#*
+working_dir/

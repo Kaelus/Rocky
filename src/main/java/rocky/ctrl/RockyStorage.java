@@ -96,11 +96,12 @@ public class RockyStorage extends FDBStorage {
 		
 		public RockyStorage(String exportName) {
 			super(exportName);
+			String prefixPathForLocalStorage = RockyController.workingDir + "/data/" + (RockyController.myPort - RockyController.defaultPort) + "/" + exportName;
 			cloudEpochBitmapsTableName = exportName + "-cloudEpochBitmapsTable";
-			localEpochBitmapsTableName = exportName + "-localEpochBitmapsTable";
+			localEpochBitmapsTableName = prefixPathForLocalStorage + "-localEpochBitmapsTable";
 			cloudBlockSnapshotStoreTableName = exportName + "-cloudBlockSnapshotStoreTable";
-			versionMapTableName = exportName + "-versionMapTable";
-			localBlockSnapshotStoreTableName = exportName + "-localBlockSnapshotStoreTable";
+			versionMapTableName = prefixPathForLocalStorage + "-versionMapTable";
+			localBlockSnapshotStoreTableName = prefixPathForLocalStorage + "-localBlockSnapshotStoreTable";
 			
 			System.out.println("RockyStorage constructor entered");
 			if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
