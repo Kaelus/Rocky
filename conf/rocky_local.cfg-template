@@ -1,8 +1,8 @@
 ip=127.0.0.1:10810
-lcvdName=testing-local
+lcvdName=testinglocal
 rockyMode=rocky
 backendStorageType=dynamoDBLocal
 epochPeriod=10000
 prefetchPeriod=30000
 workingDir=..
-debugFlag=true
+debugFlag=false

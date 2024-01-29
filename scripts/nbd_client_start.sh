@@ -7,4 +7,4 @@ fi
 
 sudo modprobe nbd
 sudo lsmod | grep nbd
-sudo nbd-client -g -N $1 localhost 10810 /dev/$4
+sudo nbd-client -g -N $1 localhost 10810 /dev/$2
