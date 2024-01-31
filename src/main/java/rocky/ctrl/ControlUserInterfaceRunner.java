@@ -98,6 +98,7 @@ public class ControlUserInterfaceRunner implements Runnable {
 		}
 		RockyStorage.flusherTimer = new Timer();
 		RockyStorage.nextFlusherTask = rockyStorage.new CloudFlusher();
+		RockyStorage.lastFlushingFlag = true;
 		RockyStorage.flusherTimer.schedule(RockyStorage.nextFlusherTask, 1);
 		System.out.println("cmdFlushCloud rescheduled flusher task to begin in 1 ms");
 		
@@ -350,6 +351,11 @@ public class ControlUserInterfaceRunner implements Runnable {
 							+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats "
 							+ "[" + CMD_FLIP_DEBUG_PRINT_FLAG + "] Flipping the debugPrintoutFlag\n");
 				}
+			}
+			if (quitFlag) {
+				rockyStorage.stopCloudPackageManager();
+				rockyStorage.stopPrefetcher();
+				rockyStorage.stopRoleSwitcher();
 			}
 		} catch (Exception exception) {
 			exception.printStackTrace();
