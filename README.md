@@ -1,35 +1,18 @@
-# Rocky: Ransomware Countermeasures for Edge-based Virtualized Desktop Infrastructure
+# Rocky: Tamper-Resistant Distributed Replicated Block Device for EdgeVDI
 
 ## Authors
 
-Beom Heyn Kim \<beomheyn.kim@gmail.com\> at Cloud Systems Lab, Hanyang University ERICA
-
-## Abstract
-
-This includes both source code of the prototype Rocky and evaluation data.
-
-1. Software
-   - Rocky Controller source code is included
-   - Other components of Rocky Endpoint are included as executable or .deb
-   - Additionally, DynamoDB is included which is used as a Connector-Cloudlet (replication broker)
-
-2. Data
-   - Throughput measurement result (section 5.2) is in 363 bytes large file eval/throughput.csv which is in the comma separated value format
-     - The first column contains the percentages of blocks present locally
-     - The second and the third columns shows write throughput in KB/s to compare between the baseline NBD and Rocky implementation
-     - The fourth and the fifth columns shows read throughput in KB/s to compare between the baseline NBD and Rocky implementation
-   - A 4.1MB high-resolution .jpg file for the reduction rate measurement (section 5.3)
-
-See the 'Build Environment' section below for dependencies and requirements.
-
+Beom Heyn Kim \<beomheyn.kim@gmail.com\> at Cloud System Lab, Hanyang University ERICA
 
 # Overview
 
 Rocky is a distributed replicated block device for tamper and failure resistant EdgeVDI. Rocky uses a replication broker to synchronize disk images across cloudlets, which is the edge datacenter sitting between endpoints and the cloud. Rocky replicates changes made to the disk images as a consistent immutable mutation history consisting of a totally-ordered write sequence. Therefore, it allows data recovery against tampering attacks such as ransomware or the wiper malware attacks or permanent failures such as fire, earthquake or disk worn out.
 
+Details of its design is further discussed in the research paper "[Rocky: Replicating Block Devices for Tamper and Failure Resistant Edge-based Virtualized Desktop Infrastructure](https://dl.acm.org/doi/abs/10.1145/3485832.3485886)," presented at ACSAC '22
+
 # Build Environment
 
-We tested with the following versions of software:
+Tested with the following versions of software:
 
 1. Ubuntu 22.04
 
@@ -43,154 +26,78 @@ Replace \<RockyHome\> below with the directory path where you cloned the Rocky g
 
 1. FoundationDB needs to be installed.
    - Reference: https://apple.github.io/foundationdb/getting-started-linux.html
-   - There are two files to install in <RockyHome>/foundationdb: foundationdb-clients_6.2.19-1_amd64.deb, foundationdb-server_6.2.19-1_amd64.deb
+   - There are two files to install in \<RockyHome\>/foundationdb: foundationdb-clients_6.2.19-1_amd64.deb, foundationdb-server_6.2.19-1_amd64.deb
    - `sudo dpkg -i foundationdb-clients_6.2.19-1_amd64.deb`
    - `sudo dpkg -i foundationdb-server_6.2.19-1_amd64.deb`
 
-2. ndb-client needs to be installed.
+2. ndb-client needs to be installed. Get it from the repo of your distro. For example (Ubuntu 'apt-get'):
    - `sudo apt-get update`
    - `sudo apt-get install nbd nbd-client`
      - Choose default value, 'yes,' for disconnecting all nbd-client devices.
-
-3. Need to create a foundationdb volume in advance.
-   - There is nbdfdb/nbdcli.jar to prepare a volume.
-     - `java -jar nbdfdb/nbdcli.jar server`
-     - `java -jar nbdfdb/nbdcli.jar create -n testing -s 1G`
-   - (NOT UPDATED YET. DO THE FOLLOWING ON YOUR OWN RISK. Not necessary. Just use nbdfdb/nbdcli.jar) If wish to do this by building from the scratch:
-      - Need Apache Maven 3.3.9 to build the tool from the source
-      - Clone the nbd on foudationdb, and go to the project home
-        - `git clone https://github.com/spullara/nbd.git`
-      - Need to update pom.xml before build:
-        - Find the line for foundationdb
-        - Fix it to direct to the correct repository by referring to https://mvnrepository.com/artifact/org.foundationdb/fdb-java/5.2.5
-	  - Then, build (This will create nbdcli.jar under the directory 'target') by `mvn package`
-	  - To create the volume, follow the instruction at https://github.com/spullara/nbd
-	    - `java -jar target/nbdcli.jar server`
-	    - `java -jar target/nbdcli.jar create -n testing -s 1G`
-	      - Note 'testing' can be replaced with any volume name
-	      - Also, note that nbdcli.jar has other commands to delete, list, etc. for the volumes
-	      - Finally, note that once you run RockyController, don't need to start spullara's server to use nbdcli.jar to manage volumes
-	    - Other useful commands for nbdcli.jar is described in its usage messages:
-	    ---
-	    '''
-	    Usage: nbdfdb.cli.NBDCLI [command name]
-	    create: Usage: nbdfdb.cli.CreateCommand
-	      -exportName (-n) [String] Name of the volume to create
-	      -size (-s) [String] Size in bytes of the volume, can use K, M, G, or T units.
-	      -blockSize (-b) [Integer] Block size of the volume (512)
-	    delete: Usage: nbdfdb.cli.DeleteCommand
-	      -exportName (-n) [String] Name of the volume to delete
-	    snapshot: Usage: nbdfdb.cli.SnapshotCommand
-	      -exportName (-n) [String] Name of the snapshot volume to create
-	      -volumeName (-v) [String] Name of the volume to snapshot
-	    list: Usage: nbdfdb.cli.ListCommand
-	    server: Usage: nbdfdb.cli.ServerCommand
-	    '''
-	    ---		
 
 # How to build
 
 `gradle clean fatJar`
 
-# How to run
+# How to prepare to run
 
-1. Setup a Connector-Cloudlet, a.k.a. a replication broker
-   - We support two types of the backend in conf/rocky.conf for the parameter backendStorageType: dynamoDBLocal and dynamoDBSeoul
-     - If testing with dynamoDBLocal, download dynamoDB first, setup the environment as the following link https://tinyurl.com/k34xbtm8 and then do the following
-       - `java -Djava.library.path=./dynamoDB/DynamoDBLocal_lib -jar ./dynamoDB/DynamoDBLocal.jar -sharedDb`
-       	 - Few useful commands:
-	       - To list all tables:
-	       	 - `aws dynamodb list-tables --endpoint-url http://localhost:8000`
-	       - To delete tables:
-	       	 - `aws dynamodb delete-table --table-name cloudBlockSnapshotStoreTable --endpoint-url http://localhost:8000`
-     - If using dynamoDBSeoul, one needs to appropriately setup the environment to use aws.
-       - Refer to AWS documentation (https://tinyurl.com/4d2rvxmj)
-       	 - Learn about how to signing up for AWS, getting AWS Access Key and configuring AWS credentials using AWS CLI
+1. Deploy necessary artifact to a working directory.
+   - There is a script setup_local.sh in \<RockyHome\>, which deploys necessary components into a working directory.
+     - To deploy to the working directory ~/working_dir/rocky/local/:
+       - `./setup_local.sh 1 ~/working_dir/rocky/local`
 
-2. Run Rocky Controller (NBD server)
-   - `java -jar <RockyHome>/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController`
-   - To run with configuration file conf/rocky.conf:
-     - `java -jar <RockyHome>/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController conf/rocky.conf`
-     - It will print out configuration parameters and their values
+2. Configure Rocky
+   - In your working directory, there are two configuration files in conf directory: rocky_local.conf and recovery_local.conf
+   - Meaning of each configuration parameter is as follows:
+     - ip: Should have the value of the format "\<IP address\>:\<Port number\>" and it is going to be used as the ID for the Rocky endpoint. 
+     - lcvdName: The backend volume name
+     - rockyMode: It can be either origin, rocky or recovery. Use rocky mode to run a VM atop. Use recovery to recover the tampered rocky node. Origin is used for the evaluation purpose.
+     - backendStorageType: Determines which backend to be used. e.g., dynamoDBLocal.
+     - epochPeriod: Time in ms. It determines how frequently the owner flushes the block snapshots to the replication broker.
+     - prefetchPeriod: Time in ms. It determines how frequently the non-owner prefetches mutation snapshots from the replication broker.
+     - workingDir: The absolute path to the working directory. e.g. ~/working_dir/rocky/local
+     - debugFlag: Turn on or off the verbose mode for more detailed messages printed out.
+     - coordinator: The node ID of the coordinator. It should be in a formate that is same as the ID's value. This should be set for recovery.
+     - e_a: The first epoch number for which the tampering writes are issued. This should be set for recovery. Adjust this accordingly.
+     - hasCloudFailed: This tells if the cloud is alive or failed. This should be set for recovery.
 
-3. Prepare the Rocky Block Device (nbd module & nbd client)
-   - `sudo modprobe nbd`
-   - `sudo lsmod | grep nbd`
-   - `sudo nbd-client -g -N <volume name> localhost /dev/nbd0`
-     - (testing is one of volume names)
+# How to run Rocky
 
-4. Switching roles of the Rocky Controller
+1. Use the script run_local.sh
+   - To run Rocky node with the volume name "testinglocal" of the size 10MB with the nbd device name "nbd0" by using the configuration file "rocky_local.conf" in the conf directory:
+     - ./run_local.sh testinglocal 10M nbd0 ../conf/0/rocky_local.conf
+
+2. Switching roles of the Rocky Controller
    - Once you started the Rocky Controller successfully, you will get a list of commands for you to control the Rocky Controller via ControlUserInterface.
    - type '2' and enter. It will show the current role.
    - If 'None' then type '2' to switch to 'NonOwner'
    - If 'NonOwner' then type '3' to switch to 'Owner'
    - Make sure the role of RockyController to be Owner before generating any I/O
 
+3. Run the following workloads in another terminal to generate some disk I/O to the nbd0 to test (You may run a VM, ransomware in it, for a more comprehensive test):
+   - `sudo mkfs.ext4 /dev/nbd0`
+   - `sudo mount /dev/nbd0 /tmp`
+   - `ls /tmp`
+   - Should be able to see the directory lost+found
+   - Create or copy some files into /tmp
+   - Then, make sure you flush to the replication broker by typing 5 in the terminal where you ran a Rocky node. (You may also type 9 beforehand to check messages printed out during the block snapshot upload.)
+     - This makes the benign writes are flushed during the epoch 1.
+   - At last, corrupt the files. (e.g. simply write some threatening messages like "Pay me if you want your data!!!!" in one of text file you created or copied into the /tmp)
+   - Now, flush to the replication broker once more by typing 5. Also, remember the epoch number
+     - By doing this flushing, the tampering writes are flushed during the epoch 2. So, the epoch 2 is going to be the e_a which you want to rollback.
+   - `sudo umount /tmp`
 
-To disconnect the Rocky Block Device from the Rocky Controller, `sudo nbd-client -d /dev/nbd0`
-Note: when you disconnect and try to connect again, it may fail because of "Volume testing is already leased." This is because the lease for the underlying foundataionDB volume 'testing' has not been released yet. Wait for a minute or so, and try again.
+5. To finish running Rocky:
+   - Type -1 in the terminal where a Rocky node is running
+   - To stop other components, use the script stop_local.sh:
+     - `./stop_local.sh nbd0`
 
-To remove Rocky Block Device module from the kernel, `sudo modprobe -r nbd`
+6. To recover the corrupted Rocky:
+   - Use the script recover_local.sh:
+     - `./recover_local.sh ../conf/0/recover_local.conf`
 
-## To Test: making file system on the block device
+7. Confirm the recovery is made correctly:
+   - `sudo mount /dev/nbd0 /tmp`
+   - Then, check the contents of the corrupted files are restored correctly. e.g., you may cat the text file and see if its contents is same as it was tampered by threatening messages.
 
-- `sudo mkfs.ext4 /dev/nbd0`
-- `sudo mount /dev/nbd0 /tmp`
-- `ls /tmp`
-- Should be able to see the directory lost+found
-- `sudo umount /tmp`
-
-# ACSAC21 Evaluation (NOT UPDATED YET. DO THE FOLLOWING ON YOUR OWN RISK)
-
-## To Reproduce the throughput measurement in Section 5.2
-
-Resulting data can be found eval/throughput.csv
-
-1. Make sure the role of the Rocky Controller to be Owner before generating any I/O. Also, try this with dynamoDBSeoul
-   - If screw up, bring down the Rocky Controller and disconnect the Rocky Controller from the Rocky block device. Then, restart the Rocky Controller and connect it with the block device again.
-
-2. To initialize the disk to avoid reading null, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=300 oflag=direct`
-
-3. Configure how much percentage of the blocks present locally to avoid fetching from the replication broker
-   - Select 4 for the Rocky Controller ControlUserInterface
-   - Type in the percentage (e.g., 70 for seventy percent of blocks being present locally)
-
-4. Using 'dd,' generate I/O
-   - To write, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/zero of=/dev/nbd0 bs=10K count=200 oflag=direct`
-   - To read, `echo 3 | sudo tee /proc/sys/vm/drop_caches; sudo dd if=/dev/nbd0 of=/dev/zero bs=10K count=200 iflag=nocache`
-
-5. Repeat 3 and 4 for different percentages of blocks present locally and for different operation types, either write or read.
-
-## To Reproduce the reduction ratio measurement in Section 5.3
-
-1. Make the file system on the Rocky block device and mount it to /tmp, as described in the section 'To Test:...' above.
-
-2. Copy a file photo/alvaro-palacios-FCdR-3_9AZk-unsplash.jpg into the /tmp
-
-3. In Rocky Controller ControlUserInterface, type '8' and '1' to print out the statistics showing how many blocks were written cumulatively ('Number of requested block writes') and how many blocks to be flushed as mutation snapshots ('Number of blocks for a Mutation Snapshot').
-
-# (Not necessary) To Run multiple Rocky instances on a single host
-
-In the directory 'conf', there is an example rocky.conf configuration file.
-Use it at your discretion after setting port and lcvdName accordingly.
-Those configuration parameters should be assigned with a unique value for
-each rocky instance.
-
-It's good idea to copy and paste the conf/rocky.conf in another directory
-for each Rocky instance to run. For instance, we may have two files under
-the directory run: run/rocky.conf.1 and run/rocky.conf.2
-We should modify those configuration files accorinngly.
-
-run/rocky.conf.1 sets port=10811 and lcvdName=testing1 and the first Rocky
-instance will use /dev/nbd1 as the Rocky device driver.
-Then, execute following commands:
-- Run a Rocky instance with the correct configuration file path name.
-  - `java -jar <RockyHome>/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController run/rocky.conf.1`
-- Run nbd-client for the Rocky instance with correct parameters.
-  - `sudo nbd-client -N testing1 localhost 10811 /dev/nbd1`
-
-Likewise, suppose run/rocky.conf.2 sets port=10812 and lcvdName=testing2
-Also, say /dev/nbd2 is the Rocky device driver instance to use.
-- `java -jar <RockyHome>/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController run/rocky.conf.2`
-- `sudo nbd-client -N testing2 localhost 10812 /dev/nbd2`
 
