@@ -282,6 +282,89 @@ public class ControlUserInterfaceRunner implements Runnable {
 		}
 	}
 	
+	public void printCommandUsage() {
+		if (RockyController.rockyMode.equals(RockyController.RockyModeType.Recovery)) {
+			System.out
+			.println("[RockyMode=" + RockyController.rockyMode.toString() + "]"
+					+ "[" + loggerID + "] What do you want to do? "
+					+ "[" + CMD_QUIT + "] quit"
+					+ "[" + CMD_FLIP_DEBUG_PRINT_FLAG + "] Flipping the debugPrintoutFlag\n");
+		} else {
+			System.out
+			.println("[RockyMode=" + RockyController.rockyMode.toString() + "]"
+					+ "[" + loggerID + "] What do you want to do? "
+					+ "[" + CMD_QUIT + "] quit"
+					+ "[" + CMD_ROLE_SWITCH + "] role switch "
+					+ "[" + CMD_CLEAN + "] clean persistent state in dbs "
+					+ "[" + CMD_PERF_EVAL + "] performance evaluation "
+					+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud "
+					+ "[" + CMD_PREFETCH + "] prefetch "
+					+ "[" + CMD_RESET_EPOCH + "] Set epoch counts "
+					+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats "
+					+ "[" + CMD_FLIP_DEBUG_PRINT_FLAG + "] Flipping the debugPrintoutFlag\n");
+		}
+
+	}
+
+	public void handleCommandRequest(int cmd) {
+		System.out.println("[" + loggerID + "] cmd=" + cmd); 
+		if (RockyController.rockyMode.equals(RockyController.RockyModeType.Recovery)) {
+			// TBD
+			switch (cmd) {
+			case CMD_QUIT:
+				quitFlag = true;
+				break;
+			case CMD_FLIP_DEBUG_PRINT_FLAG:
+				cmdFlipDebugPrintFlag();
+				break;
+			default:
+				break;
+			}
+		} else {
+			switch (cmd) {
+			case CMD_QUIT:
+				quitFlag = true;
+				break;
+			case CMD_ROLE_SWITCH:
+				cmdRoleSwitch();
+				break;
+			case CMD_CLEAN:
+				cmdClean();
+				break;
+			case CMD_PERF_EVAL:
+				cmdPerfEval();
+				break;
+			case CMD_FLUSH_CLOUD:
+				cmdFlushCloud();
+				break;
+			case CMD_PREFETCH:
+				cmdPrefetch();
+				break;
+			case CMD_RESET_EPOCH:
+				cmdResetEpoch();
+				break;
+			case CMD_MS_STAT:
+				cmdMutationSnapStat();
+				break;
+			case CMD_FLIP_DEBUG_PRINT_FLAG:
+				cmdFlipDebugPrintFlag();
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	
+	public void haltRocky() {
+		if (RockyController.rockyMode.equals(RockyController.RockyModeType.Recovery)) {
+			// TBD
+		} else {
+			rockyStorage.stopCloudPackageManager();
+			rockyStorage.stopPrefetcher();
+			rockyStorage.stopRoleSwitcher();
+		}
+	}
+	
 	@Override
 	public void run() {
 		try {
@@ -289,73 +372,20 @@ public class ControlUserInterfaceRunner implements Runnable {
 			BufferedReader br = new BufferedReader(new InputStreamReader(
 					System.in));
 			String input;
-			System.out
-					.println("[" + loggerID + "] What do you want to do? "
-							+ "[" + CMD_QUIT + "] quit"
-							+ "[" + CMD_ROLE_SWITCH + "] role switch "
-							+ "[" + CMD_CLEAN + "] clean persistent state in dbs "
-							+ "[" + CMD_PERF_EVAL + "] performance evaluation "
-							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud "
-							+ "[" + CMD_PREFETCH + "] prefetch "
-							+ "[" + CMD_RESET_EPOCH + "] Set epoch counts "
-							+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats "
-							+ "[" + CMD_FLIP_DEBUG_PRINT_FLAG + "] Flipping the debugPrintoutFlag\n");
+			printCommandUsage();
 			while (!quitFlag && ((input = br.readLine()) != null)) {
 				try {
 					int cmd = Integer.valueOf(input);
-					System.out.println("[" + loggerID + "] cmd=" + cmd); 
-					switch (cmd) {
-					case CMD_QUIT:
-						quitFlag = true;
-						break;
-					case CMD_ROLE_SWITCH:
-						cmdRoleSwitch();
-						break;
-					case CMD_CLEAN:
-						cmdClean();
-						break;
-					case CMD_PERF_EVAL:
-						cmdPerfEval();
-						break;
-					case CMD_FLUSH_CLOUD:
-						cmdFlushCloud();
-						break;
-					case CMD_PREFETCH:
-						cmdPrefetch();
-						break;
-					case CMD_RESET_EPOCH:
-						cmdResetEpoch();
-						break;
-					case CMD_MS_STAT:
-						cmdMutationSnapStat();
-						break;
-					case CMD_FLIP_DEBUG_PRINT_FLAG:
-						cmdFlipDebugPrintFlag();
-						break;
-					default:
-						break;
-					}
+					handleCommandRequest(cmd);
 				} catch (NumberFormatException e) {
 					e.printStackTrace();
 				}
 				if (!quitFlag) {
-					System.out
-					.println("[" + loggerID + "] What do you want to do? "
-							+ "[" + CMD_QUIT + "] quit"
-							+ "[" + CMD_ROLE_SWITCH + "] role switch "
-							+ "[" + CMD_CLEAN + "] clean persistent state in dbs "
-							+ "[" + CMD_PERF_EVAL + "] performance evaluation "
-							+ "[" + CMD_FLUSH_CLOUD + "] flush to cloud "
-							+ "[" + CMD_PREFETCH + "] prefetch "
-							+ "[" + CMD_RESET_EPOCH + "] Set epoch counts "
-							+ "[" + CMD_MS_STAT + "] Get Mutation Snapshot Stats "
-							+ "[" + CMD_FLIP_DEBUG_PRINT_FLAG + "] Flipping the debugPrintoutFlag\n");
+					printCommandUsage();
 				}
 			}
 			if (quitFlag) {
-				rockyStorage.stopCloudPackageManager();
-				rockyStorage.stopPrefetcher();
-				rockyStorage.stopRoleSwitcher();
+				haltRocky();
 			}
 		} catch (Exception exception) {
 			exception.printStackTrace();
@@ -365,6 +395,7 @@ public class ControlUserInterfaceRunner implements Runnable {
 		System.out.println("[" + loggerID + "] The main function is Done now...");
 		System.out.println("[" + loggerID + "] Goodbye!!!");
 
+		System.exit(0);
 	}
 
 	

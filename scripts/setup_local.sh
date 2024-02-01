@@ -26,6 +26,7 @@ cp ./run_local.sh $script_dir_dst/.
 cp ./stop_local.sh $script_dir_dst/.
 cp ./fdb_delete_volume.sh $script_dir_dst/.
 cp ./clean_local.sh $script_dir_dst/.
+cp ./recover_local.sh $script_dir_dst/.
 
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/dynamodb_local_start.sh
 sed -i -e "4s|.*|working_dir=$working_dir|" $script_dir_dst/dynamodb_local_start.sh
@@ -43,6 +44,7 @@ while [ $i -lt $num_node ]; do
     test -d $conf_dir/$i && rm -rf $conf_dir/$i
     mkdir -p $conf_dir/$i
     cp -rf $conf_template_dir/rocky_local.cfg-template $conf_dir/$i/rocky_local.cfg
+    cp -rf $conf_template_dir/recover_local.cfg-template $conf_dir/$i/recover_local.cfg
     #cp -rf $scriptdir/zk_log.properties $conf_dir/$i/zk_log.properties
 
     sed -i -e "7s|.*|workingDir=$working_dir|" $conf_dir/$i/rocky_local.cfg

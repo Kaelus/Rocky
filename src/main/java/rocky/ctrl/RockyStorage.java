@@ -43,6 +43,7 @@ public class RockyStorage extends FDBStorage {
 		public static BitSet presenceBitmap;
 		public static BitSet dirtyBitmap;
 
+		public static String prefixPathForLocalStorage;
 		//public String pBmTableName = "presenceBitmapTable";
 		public static String cloudEpochBitmapsTableName;
 		public static String localEpochBitmapsTableName;
@@ -99,7 +100,7 @@ public class RockyStorage extends FDBStorage {
 		
 		public RockyStorage(String exportName) {
 			super(exportName);
-			String prefixPathForLocalStorage = RockyController.workingDir + "/data/" + (RockyController.myPort - RockyController.defaultPort) + "/" + exportName;
+			prefixPathForLocalStorage = RockyController.workingDir + "/data/" + (RockyController.myPort - RockyController.defaultPort) + "/" + exportName;
 			cloudEpochBitmapsTableName = exportName + "-cloudEpochBitmapsTable";
 			localEpochBitmapsTableName = prefixPathForLocalStorage + "-localEpochBitmapsTable";
 			cloudBlockSnapshotStoreTableName = exportName + "-cloudBlockSnapshotStoreTable";
@@ -253,7 +254,7 @@ public class RockyStorage extends FDBStorage {
 					//System.out.println("epochBytes length=" + epochBytes.length);
 					retLong = ByteUtils.bytesToLong(epochBytes);
 					System.out.println("Currently epochCnt=" + epochCnt);
-					System.out.println("Updating epochCnt to be=" + epochCnt);
+					System.out.println("Updating epochCnt to be=" + retLong);
 				}
 			} catch (IOException e) {
 				e.printStackTrace();

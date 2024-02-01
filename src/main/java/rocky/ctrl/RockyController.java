@@ -26,6 +26,8 @@ import java.util.logging.Logger;
 
 import com.google.common.base.Charsets;
 
+import rocky.recovery.RecoveryController;
+
 
 //import nbdfdb.NBDVolumeServer;
 
@@ -43,7 +45,7 @@ public class RockyController {
 	
 	public static String workingDir;
 	
-	public enum RockyModeType {Origin, Rocky, Unknown};
+	public enum RockyModeType {Origin, Rocky, Recovery, Unknown};
 	public static RockyModeType rockyMode; 
 	
 	public enum BackendStorageType {DynamoDBLocal, DynamoDB_SEOUL, 
@@ -79,67 +81,72 @@ public class RockyController {
 		nodeID = myIP + ":" + myPort;
 		
 		//print out variable settings
+		System.out.println("myIP=" + myIP);
+		System.out.println("myPort=" + myPort);
 		System.out.println("nodeID=" + nodeID);
-		System.out.println("port=" + myPort);
 		System.out.println("rockyMode=" + rockyMode);
 		System.out.println("backendStorageType=" + backendStorage);
 		System.out.println("workingDir=" + workingDir);
 
-		//start
-		ExecutorService es = Executors.newCachedThreadPool();
-	    log.info("Listening for nbd-client connections");
-	    ServerSocket ss = new ServerSocket(myPort);
-	    while (true) {
-	      Socket accept = ss.accept();
-	      es.submit(() -> {
-	        try {
-	          InetSocketAddress remoteSocketAddress = (InetSocketAddress) accept.getRemoteSocketAddress();
-	          log.info("Client connected from: " + remoteSocketAddress.getAddress().getHostAddress());
-	          DataInputStream in = new DataInputStream(accept.getInputStream());
-	          DataOutputStream out = new DataOutputStream(new BufferedOutputStream(accept.getOutputStream()));
-
-	          out.write(INIT_PASSWD);
-	          out.write(OPTS_MAGIC_BYTES);
-	          out.writeShort(NBD_FLAG_HAS_FLAGS);
-	          out.flush();
-
-	          // TODO: interpret the client flags.
-	          int clientFlags = in.readInt();
-	          long magic = in.readLong();
-	          System.out.println("BK: magic=" + magic);
-	          System.out.println("BK: magic(hex)=" + Long.toHexString(magic));
-	          int opt = in.readInt();
-	          System.out.println("BK: opt=" + opt);
-	          if (opt != NBD_OPT_EXPORT_NAME) {
-	            throw new RuntimeException("We support only EXPORT options");
-	          }
-	          int length = in.readInt();
-	          byte[] bytes = new byte[length];
-	          in.readFully(bytes);
-	          String exportName = new String(bytes, Charsets.UTF_8);
-	          //exportName = getUniqueExportName();
-	          if (lcvdName != null) {
-	        	  if (!exportName.equals(lcvdName)) {
-		        	  System.err.println("exportName and lcvdName do not match!");
-		        	  System.err.println("exportName=" + exportName);
-		        	  System.err.println("lcvdName=" + lcvdName);
-		        	  System.exit(1);
+		// start 'recovery' mode
+		if (rockyMode.equals(RockyModeType.Recovery)) {
+			RecoveryController.runRecovery(args);
+		} else { // start 'rocky' storage mode
+			ExecutorService es = Executors.newCachedThreadPool();
+		    log.info("Listening for nbd-client connections");
+		    ServerSocket ss = new ServerSocket(myPort);
+		    while (true) {
+		      Socket accept = ss.accept();
+		      es.submit(() -> {
+		        try {
+		          InetSocketAddress remoteSocketAddress = (InetSocketAddress) accept.getRemoteSocketAddress();
+		          log.info("Client connected from: " + remoteSocketAddress.getAddress().getHostAddress());
+		          DataInputStream in = new DataInputStream(accept.getInputStream());
+		          DataOutputStream out = new DataOutputStream(new BufferedOutputStream(accept.getOutputStream()));
+	
+		          out.write(INIT_PASSWD);
+		          out.write(OPTS_MAGIC_BYTES);
+		          out.writeShort(NBD_FLAG_HAS_FLAGS);
+		          out.flush();
+	
+		          // TODO: interpret the client flags.
+		          int clientFlags = in.readInt();
+		          long magic = in.readLong();
+		          System.out.println("BK: magic=" + magic);
+		          System.out.println("BK: magic(hex)=" + Long.toHexString(magic));
+		          int opt = in.readInt();
+		          System.out.println("BK: opt=" + opt);
+		          if (opt != NBD_OPT_EXPORT_NAME) {
+		            throw new RuntimeException("We support only EXPORT options");
 		          }
-	          }
-	          log.info("Connecting client to exportName=" + exportName);
-	          NBDVolumeServer nbdVolumeServer = new NBDVolumeServer(exportName, in, out);
-	          log.info("Volume mounted");
-	          nbdVolumeServer.run();
-	        } catch (Throwable e) {
-	          log.log(Level.SEVERE, "Failed to connect", e);
-	          try {
-	            accept.close();
-	          } catch (IOException e1) {
-	            e1.printStackTrace();
-	          }
-	        }
-	      });
-	    }
+		          int length = in.readInt();
+		          byte[] bytes = new byte[length];
+		          in.readFully(bytes);
+		          String exportName = new String(bytes, Charsets.UTF_8);
+		          //exportName = getUniqueExportName();
+		          if (lcvdName != null) {
+		        	  if (!exportName.equals(lcvdName)) {
+			        	  System.err.println("exportName and lcvdName do not match!");
+			        	  System.err.println("exportName=" + exportName);
+			        	  System.err.println("lcvdName=" + lcvdName);
+			        	  System.exit(1);
+			          }
+		          }
+		          log.info("Connecting client to exportName=" + exportName);
+		          NBDVolumeServer nbdVolumeServer = new NBDVolumeServer(exportName, in, out);
+		          log.info("Volume mounted");
+		          nbdVolumeServer.run();
+		        } catch (Throwable e) {
+		          log.log(Level.SEVERE, "Failed to connect", e);
+		          try {
+		            accept.close();
+		          } catch (IOException e1) {
+		            e1.printStackTrace();
+		          }
+		        }
+		      });
+		    }
+		}
 	}
 
 	private static void parseRockyControllerConfig(String configFile) {
@@ -171,6 +178,8 @@ public class RockyController {
 		    		   rockyMode = RockyModeType.Origin;
 		    	   } else if (rockyModeTypeStr.equals("rocky")) {
 		    		   rockyMode = RockyModeType.Rocky;
+		    	   } else if (rockyModeTypeStr.equals("recovery")) {
+		    		   rockyMode = RockyModeType.Recovery;
 		    	   } else {
 		    		   rockyMode = RockyModeType.Unknown;
 		    	   }

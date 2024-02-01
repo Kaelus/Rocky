@@ -1,11 +1,11 @@
 ip=127.0.0.1:10810
 lcvdName=testinglocal
-rockyMode=rocky
+rockyMode=recovery
 backendStorageType=dynamoDBLocal
 epochPeriod=10000
 prefetchPeriod=30000
 workingDir=..
 debugFlag=false
 coordinator=127.0.0.1:10810
-e_a=1
+e_a=2
 hasCloudFailed=false
