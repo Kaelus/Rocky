@@ -27,6 +27,7 @@ cp ./stop_local.sh $script_dir_dst/.
 cp ./fdb_delete_volume.sh $script_dir_dst/.
 cp ./clean_local.sh $script_dir_dst/.
 cp ./recover_local.sh $script_dir_dst/.
+cp ./stop_workload.sh $script_dir_dst/.
 
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/dynamodb_local_start.sh
 sed -i -e "4s|.*|working_dir=$working_dir|" $script_dir_dst/dynamodb_local_start.sh

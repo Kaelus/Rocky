@@ -1,5 +1,6 @@
 package rocky.ctrl;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -177,6 +178,7 @@ public class RockyStorage extends FDBStorage {
 			if (RockyController.pComType.equals(RockyController.RockyPeerCommunicationType.XMLRPC)) {
 				PeerComXMLRPC pComXMLRPC = new PeerComXMLRPC(RockyController.nodeID +"-peerComXMLRPC");
 				pComXMLRPC.setRoleSwitcher(roleSwitcherThread);
+				pComXMLRPC.setRockyStorage(this);
 				pCom = pComXMLRPC;
 			} else {
 				System.err.println("Error: Unknown pComType");
@@ -713,6 +715,24 @@ public class RockyStorage extends FDBStorage {
 			stopCloudPackageManager();
 			instantCloudFlushing();
 			cloudBlockSnapshotStore.remove("owner");
+		}
+		
+		public void stopWorkload() {
+			// run the stop_workload.sh script to stop the workload (vm or app using Rocky)
+			String[] stopCmd = { "./stop_workload.sh"};
+			ProcessBuilder builder = new ProcessBuilder();
+			builder.directory(new File(RockyController.workingDir + "/scripts"));
+			try {
+				DebugLog.log("Invoking CMD=\n" + String.join(" ", stopCmd));
+				Process p = builder.command(stopCmd).start();
+				p.waitFor();
+			} catch (IOException e) {
+				e.printStackTrace();
+				System.exit(1);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+				System.exit(1);
+			}
 		}
 		
 		/**

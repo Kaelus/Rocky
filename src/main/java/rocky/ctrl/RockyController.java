@@ -245,7 +245,7 @@ public class RockyController {
 		    	   for (int i = 0; i < peerTokens.length; i++) {
 		    		   peerAddressList.add(peerTokens[i]);
 		    	   }
-		       }
+		       } 
 		    }
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();

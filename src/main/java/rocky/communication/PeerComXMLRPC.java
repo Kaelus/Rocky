@@ -192,6 +192,7 @@ public class PeerComXMLRPC implements PeerCommunication {
 					System.err.println("ASSERT: rockyStorage is null.");
 					System.exit(1);					
 				}
+				rockyStorage.stopWorkload();
 				rockyStorage.renounceOwnership();
 				RockyController.role = newRole;
 				roleSwitcherThread.notify();
