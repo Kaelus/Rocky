@@ -15,12 +15,15 @@ import java.util.concurrent.LinkedBlockingDeque;
 
 import com.google.common.base.Charsets;
 
+import rocky.communication.Message;
+import rocky.communication.MessageType;
+import rocky.communication.PeerComXMLRPC;
+import rocky.communication.PeerCommunication;
 import rocky.ctrl.RockyController.RockyControllerRoleType;
-import rocky.ctrl.RockyStorage.CloudFlusher;
 import rocky.ctrl.cloud.GenericKeyValueStore;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
 import rocky.ctrl.utils.ByteUtils;
-import rocky.ctrl.utils.ObjectSerializer;
+import rocky.ctrl.utils.DebugLog;
 
 public class RockyStorage extends FDBStorage {
 		//String nodeID;
@@ -66,7 +69,7 @@ public class RockyStorage extends FDBStorage {
 		protected final BlockingQueue<WriteRequest> queue;
 		public HashMap<Integer, byte[]> writeMap;
 
-		Thread roleSwitcherThread;
+		public Thread roleSwitcherThread;
 		public Object prefetchFlush;
 		
 		public static boolean roleSwitchFlag;
@@ -78,6 +81,8 @@ public class RockyStorage extends FDBStorage {
 		
 		public static long epochCnt;
 		public static long prefetchedEpoch;
+		
+		public static PeerCommunication pCom;
 		
 		class WriteRequest {
 			public byte[] buf;
@@ -169,6 +174,14 @@ public class RockyStorage extends FDBStorage {
 			cui.rockyStorage = this;
 			controlUIThread = new Thread(cui);
 			controlUIThread.start();
+			if (RockyController.pComType.equals(RockyController.RockyPeerCommunicationType.XMLRPC)) {
+				PeerComXMLRPC pComXMLRPC = new PeerComXMLRPC(RockyController.nodeID +"-peerComXMLRPC");
+				pComXMLRPC.setRoleSwitcher(roleSwitcherThread);
+				pCom = pComXMLRPC;
+			} else {
+				System.err.println("Error: Unknown pComType");
+	 		   	System.exit(1);
+			}
 		}
 		
 //		public long getRealBlockID(long epoch, long bid) {
@@ -649,8 +662,63 @@ public class RockyStorage extends FDBStorage {
 			System.out.println("updateLocalStateToBecomeOwner is done");
 		}
 		
+		public String getOwner() {
+			String retStr = null;
+			byte[] ownerIDBytes = null;
+			try {
+				ownerIDBytes = cloudBlockSnapshotStore.get("owner");
+				if (ownerIDBytes != null) {
+					retStr = new String(ownerIDBytes, Charsets.UTF_8);
+				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			return retStr;		
+		}
+		
+		public void takeOwnership() {
+			String ownerID = null;
+			byte[] latestEpochBytes = null;
+			long latestEpoch = -1;
+			
+			ownerID = getOwner();
+			if (ownerID != null) {
+				Message ackMsg = pCom.sendPeerRequest(ownerID, PeerCommunication.PeerRequestType.OWNERSHIP_REQUEST);
+				if (ackMsg.msgType != MessageType.MSG_T_ACK) {
+					DebugLog.elog("ERROR: We haven't implemented retry for peer request for ownership yet. It is error.");
+					System.exit(1);
+				}
+			}
+			try {
+				latestEpochBytes = cloudBlockSnapshotStore.get("EpochCount");
+				if (latestEpochBytes == null) {
+					System.err.println("latestEpochBytes is null..");
+				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			latestEpoch = ByteUtils.bytesToLong(latestEpochBytes);
+			updateLocalStateToBecomeOwner(prefetchedEpoch, latestEpoch);
+			try {
+				cloudBlockSnapshotStore.put("owner", RockyController.nodeID.getBytes());
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		
+		public void renounceOwnership() {
+			stopCloudPackageManager();
+			instantCloudFlushing();
+			cloudBlockSnapshotStore.remove("owner");
+		}
+		
 		/**
-		 *  State change and activated threads:
+		 *  This method is only for starting or stopping related threads.
+		 *  State change validity check and all necessary procedures must
+		 *  have been already done before invoking this method:		 *  
 		 *  
 		 *     None    -->    NonOwner    <-->        Owner
 		 *  ---------------------------------------------------------
@@ -665,30 +733,9 @@ public class RockyStorage extends FDBStorage {
 				prefetcherThread.start();
 			} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 					&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
-				byte[] latestEpochBytes = null;
-				long latestEpoch = -1;
-				try {
-					latestEpochBytes = cloudBlockSnapshotStore.get("EpochCount");
-					if (latestEpochBytes == null) {
-						System.err.println("latestEpochBytes is null..");
-					}
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				latestEpoch = ByteUtils.bytesToLong(latestEpochBytes);
-				updateLocalStateToBecomeOwner(prefetchedEpoch, latestEpoch);
-				try {
-					cloudBlockSnapshotStore.put("owner", RockyController.nodeID.getBytes());
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
 				cloudPackageManagerThread.start();
 			} else if (prevRole.equals(RockyController.RockyControllerRoleType.Owner) 
 					&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
-				stopCloudPackageManager();
-				instantCloudFlushing();
 			} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 					&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
 				stopPrefetcher();

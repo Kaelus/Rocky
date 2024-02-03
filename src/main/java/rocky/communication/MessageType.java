@@ -1,4 +1,4 @@
-package rocky.recovery.rpc;
+package rocky.communication;
 
 public class MessageType {
 
@@ -9,6 +9,9 @@ public class MessageType {
 	public static final int MSG_T_NO_CLOUD_FAILURE_RECOVERY = 2;
 	public static final int MSG_T_GET_CMD = 3;
 	public static final int MSG_T_SEND_CMD = 4;
+	
+	// Peer Request Message Types
+	public static final int PEER_REQ_T_OWNERSHIP = 1;
 	
 	// Client to Phone message type constants
 	public static final int CM_T_DW_F = 0;

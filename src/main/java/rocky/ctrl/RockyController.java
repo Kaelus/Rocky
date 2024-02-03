@@ -19,6 +19,7 @@ import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.logging.Level;
@@ -55,6 +56,10 @@ public class RockyController {
 	public enum RockyControllerRoleType {Owner, NonOwner, None};
 	public static RockyControllerRoleType role;
 	
+	public enum RockyPeerCommunicationType {XMLRPC, Unknown};
+	public static RockyPeerCommunicationType pComType;
+	public static ArrayList<String> peerAddressList;
+	
 	public static int epochPeriod;
 	public static int prefetchPeriod;
 		
@@ -69,6 +74,7 @@ public class RockyController {
 		epochPeriod = 30000; // 30sec
 		prefetchPeriod = 300000; // 5min
 		workingDir = ".";
+		peerAddressList = new ArrayList<String>();
 		
 		//update variables using config if given
 		if (args.length < 2) {
@@ -221,6 +227,24 @@ public class RockyController {
 		       } else if (line.startsWith("debugFlag")) {
 		    	   String[] tokens = line.split("=");
 		    	   RockyStorage.debugPrintoutFlag = Boolean.parseBoolean(tokens[1]);
+		       } else if (line.startsWith("pComType")) {
+		    	   String[] tokens = line.split("=");
+		    	   String pComTypeStr = tokens[1];
+		    	   if (pComTypeStr.equals("XMLRPC")) {
+		    		   pComType = RockyController.RockyPeerCommunicationType.XMLRPC;
+		    	   } else {
+		    		   pComType = RockyController.RockyPeerCommunicationType.Unknown;
+		    	   }
+		    	   System.out.println("pComType=" + pComType);
+		    	   if (pComType.equals(RockyController.RockyPeerCommunicationType.Unknown)) {
+		    		   System.err.println("Error: Cannot support Unknown pComType");
+		    		   System.exit(1);
+		    	   }
+		       } else if (line.startsWith("peerAddress")) {
+		    	   String[] peerTokens = line.split(",");
+		    	   for (int i = 0; i < peerTokens.length; i++) {
+		    		   peerAddressList.add(peerTokens[i]);
+		    	   }
 		       }
 		    }
 		} catch (FileNotFoundException e) {

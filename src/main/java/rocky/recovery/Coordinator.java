@@ -15,6 +15,9 @@ import com.apple.foundationdb.Database;
 import com.apple.foundationdb.FDB;
 import com.google.common.base.Charsets;
 
+import rocky.communication.Message;
+import rocky.communication.MessageType;
+import rocky.communication.ReceiverXMLRPC;
 import rocky.ctrl.FDBArray;
 import rocky.ctrl.RockyStorage;
 import rocky.ctrl.ValueStorageLevelDB;
@@ -23,9 +26,6 @@ import rocky.ctrl.cloud.ValueStorageDynamoDB;
 import rocky.ctrl.utils.ByteUtils;
 import rocky.ctrl.utils.DebugLog;
 import rocky.ctrl.utils.ObjectSerializer;
-import rocky.recovery.rpc.Message;
-import rocky.recovery.rpc.MessageType;
-import rocky.recovery.rpc.ReceiverXMLRPC;
 
 public class Coordinator {
 

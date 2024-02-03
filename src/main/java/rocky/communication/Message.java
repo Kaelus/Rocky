@@ -1,4 +1,4 @@
-package rocky.recovery.rpc;
+package rocky.communication;
 
 public class Message  implements java.io.Serializable{
 

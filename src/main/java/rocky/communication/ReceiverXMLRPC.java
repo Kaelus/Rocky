@@ -1,4 +1,4 @@
-package rocky.recovery.rpc;
+package rocky.communication;
 
 import org.apache.xmlrpc.server.PropertyHandlerMapping;
 import org.apache.xmlrpc.server.XmlRpcServer;
@@ -32,7 +32,7 @@ public class ReceiverXMLRPC {
 			// phm.load(Thread.currentThread().getContextClassLoader(),
 			// "XmlRpcServlet.properties");
 			
-			phm.addHandler("Coordinator", rocky.recovery.Coordinator.class);
+			phm.addHandler("PeerComXMLRPC", rocky.communication.PeerComXMLRPC.class);
 
 			/*
 			 * You may also provide the handler classes directly, like this:

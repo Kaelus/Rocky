@@ -1,4 +1,4 @@
-package rocky.recovery.rpc;
+package rocky.communication;
 
 import java.net.URL;
 import java.util.Vector;

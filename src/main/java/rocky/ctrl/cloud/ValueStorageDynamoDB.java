@@ -135,8 +135,12 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
             retValue = (byte[]) outcomeValue;
         }
         catch (Exception e) {
-            System.err.println("Unable to read item: " + key);
-            System.err.println(e.getMessage());
+        	if (!key.equals("owner")) {
+        		System.err.println("Unable to read item: " + key);
+        		System.err.println(e.getMessage());
+        	} else {
+        		System.out.println("owner exists.");
+        	}
         }
 //        if (retValue == null) {
 //        	retValue = new byte[RockyStorage.blockSize];

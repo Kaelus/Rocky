@@ -259,23 +259,28 @@ public class ControlUserInterfaceRunner implements Runnable {
 		boolean fromNoneToOwner = 
 				prevRole.equals(RockyController.RockyControllerRoleType.None)
 				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner);
-		boolean fromNoneOwnerToOwner = 
+		boolean fromNonOwnerToOwner = 
 				prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.Owner);
-		boolean fromOwnerToNoneOwner =
+		boolean fromOwnerToNonOwner =
 				prevRole.equals(RockyController.RockyControllerRoleType.Owner) 
 				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner);
-		boolean fromNoneOwnerToNone = 
+		boolean fromNonOwnerToNone = 
 				prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 				&& newRole.equals(RockyController.RockyControllerRoleType.None);
-		if (!(fromNoneToOwner || fromNoneOwnerToOwner 
-				|| fromOwnerToNoneOwner || fromNoneOwnerToNone)) {
+		if (!(fromNoneToOwner || fromNonOwnerToOwner 
+				|| fromOwnerToNonOwner || fromNonOwnerToNone)) {
 			System.err.println("ASSERT: unallowed role switching scenario");
 			System.err.println("From=" + prevRole.toString() + " To=" + newRole.toString());
 			System.err.println("We will ignore the role switching request");
 		} else {
 			//synchronized(RockyController.role) {
 			synchronized(roleSwitcherThread) {
+				if (fromNonOwnerToOwner) {
+					rockyStorage.takeOwnership();
+				} else if (fromOwnerToNonOwner) {
+					rockyStorage.renounceOwnership();
+				}
 				RockyController.role = newRole;
 				roleSwitcherThread.notify();
 			}	
