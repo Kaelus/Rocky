@@ -12,3 +12,4 @@ hasCloudFailed=false
 pComType=XMLRPC
 peerAddress=127.0.0.1:12300,127.0.0.1:12301,127.0.0.1:12302
 nbdPort=10810
+cloudTableNamePrefix=testinglocal

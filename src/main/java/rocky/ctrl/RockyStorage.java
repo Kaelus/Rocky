@@ -62,6 +62,7 @@ public class RockyStorage extends FDBStorage {
 		public static GenericKeyValueStore versionMap;
 		public static GenericKeyValueStore localBlockSnapshotStore;
 		
+		public static CloudPackageManager cloudPackageManager;
 		public static Thread cloudPackageManagerThread;
 		public static Timer flusherTimer;
 		public static TimerTask nextFlusherTask;
@@ -75,6 +76,7 @@ public class RockyStorage extends FDBStorage {
 		
 		public static boolean roleSwitchFlag;
 		
+		public static Prefetcher prefetcher;
 		public static Thread prefetcherThread;
 		
 		ControlUserInterfaceRunner cui;
@@ -107,9 +109,9 @@ public class RockyStorage extends FDBStorage {
 		public RockyStorage(String exportName) {
 			super(exportName);
 			prefixPathForLocalStorage = RockyController.workingDir + "/data/" + (RockyController.pComPort - RockyController.defaultPCOMPort) + "/" + exportName;
-			cloudEpochBitmapsTableName = exportName + "-cloudEpochBitmapsTable";
+			cloudEpochBitmapsTableName = RockyController.cloudTableNamePrefix + "-cloudEpochBitmapsTable";
 			localEpochBitmapsTableName = prefixPathForLocalStorage + "-localEpochBitmapsTable";
-			cloudBlockSnapshotStoreTableName = exportName + "-cloudBlockSnapshotStoreTable";
+			cloudBlockSnapshotStoreTableName = RockyController.cloudTableNamePrefix + "-cloudBlockSnapshotStoreTable";
 			versionMapTableName = prefixPathForLocalStorage + "-versionMapTable";
 			localBlockSnapshotStoreTableName = prefixPathForLocalStorage + "-localBlockSnapshotStoreTable";
 			
@@ -162,10 +164,10 @@ public class RockyStorage extends FDBStorage {
 			System.out.println(">>>> epochCnt=" + epochCnt);
 			System.out.println(">>>> prefetchedEpoch=" + prefetchedEpoch);
 			writeMap = new HashMap<Integer, byte[]>();
-			CloudPackageManager cpm = new CloudPackageManager(queue);
-			cloudPackageManagerThread = new Thread(cpm);
+			cloudPackageManager = new CloudPackageManager(queue);
+			cloudPackageManagerThread = new Thread(cloudPackageManager);
 			lastFlushingFlag = false;
-			Prefetcher prefetcher = new Prefetcher(this);
+			prefetcher = new Prefetcher(this);
 			prefetcherThread = new Thread(prefetcher);
 			RockyController.role = RockyControllerRoleType.None;
 			roleSwitchFlag = false;
@@ -750,12 +752,23 @@ public class RockyStorage extends FDBStorage {
 				RockyController.RockyControllerRoleType newRole) {
 			if (prevRole.equals(RockyController.RockyControllerRoleType.None) 
 					&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
-				prefetcherThread.start();
+				try {
+					prefetcherThread.start();
+				} catch (IllegalThreadStateException itse) {
+					DebugLog.log("prefetcherThreadThread has stopped. Recreate to start again.");
+					prefetcherThread = new Thread(prefetcher);
+				}
 			} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 					&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
-				cloudPackageManagerThread.start();
+				try {
+					cloudPackageManagerThread.start();
+				} catch (IllegalThreadStateException itse) {
+					DebugLog.log("cloudPackageManagerThread has stopped. Recreate to start again.");
+					cloudPackageManagerThread = new Thread(cloudPackageManager);
+				}
 			} else if (prevRole.equals(RockyController.RockyControllerRoleType.Owner) 
 					&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
+				stopCloudPackageManager();
 			} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 					&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
 				stopPrefetcher();
@@ -1074,6 +1087,7 @@ public class RockyStorage extends FDBStorage {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+			System.out.println("Joined the cloud package manager thread. It is now terminated");
 		}
 		
 		public class CloudPackageManager implements Runnable {

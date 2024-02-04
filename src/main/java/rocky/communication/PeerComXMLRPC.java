@@ -15,9 +15,8 @@ public class PeerComXMLRPC implements PeerCommunication {
 	private ArrayList<SenderXMLRPC> peerSenderList;
 	private ReceiverXMLRPC receiver;
 	
-	Thread roleSwitcherThread;
-	RockyStorage rockyStorage;
-	
+	public static Thread roleSwitcherThread;
+	public static RockyStorage rockyStorage;
 	public static int myInstanceNo;
 	
 	/**
@@ -64,7 +63,10 @@ public class PeerComXMLRPC implements PeerCommunication {
 			sender = new SenderXMLRPC(peerXMLRPCRecvIP, 
 					peerXMLRPCRecvID, peerXMLRPCRecvReqHandler);
 			sender.loggerID = this.loggerID + "-" + peerAddrStr;
+			peerSenderList.add(sender);
+			DebugLog.log("Inside constructor, add a sender to peerSenderList: " + peerAddrStr);
 		}
+		DebugLog.log("Added all peer senders now.");
 		
 		// initialize receiver side stuffs		
 		myInstanceNo = 0;
@@ -144,7 +146,11 @@ public class PeerComXMLRPC implements PeerCommunication {
 		case MessageType.PEER_REQ_T_OWNERSHIP:
 			retObj = handleOwnershipRequest(pMsg);
 			ackMsg = new Message();
-			ackMsg.msgType = MessageType.MSG_T_ACK;
+			if (retObj != null) {
+				ackMsg.msgType = MessageType.MSG_T_ACK;
+			} else {
+				ackMsg.msgType = MessageType.MSG_T_NACK;
+			}
 			ackMsg.msgContent = retObj;
 			break;
 		default:
@@ -173,20 +179,20 @@ public class PeerComXMLRPC implements PeerCommunication {
 	public Object handleOwnershipRequest(Message pMsg) {
 		Object retObj = null;
 		
-		RockyController.RockyControllerRoleType newRole = RockyController.RockyControllerRoleType.Owner;
+		RockyController.RockyControllerRoleType newRole = RockyController.RockyControllerRoleType.NonOwner;
 		RockyController.RockyControllerRoleType prevRole = null;
 		if (roleSwitcherThread == null) {
-			DebugLog.elog("ASSERT: rsThread is not initialized yet.");
+			DebugLog.elog("ASSERT: roleSwitcherThread is not initialized yet.");
 			System.exit(1);
 		}
 		synchronized(roleSwitcherThread) {
 			prevRole = RockyController.role;
 		}
-		boolean fromNoneOwnerToOwner = 
-				prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
-				&& newRole.equals(RockyController.RockyControllerRoleType.Owner);
-		if (!fromNoneOwnerToOwner) {
-			System.err.println("ASSERT: unallowed role switching scenario");
+		boolean fromOwnerToNonOwner = 
+				prevRole.equals(RockyController.RockyControllerRoleType.Owner)
+				&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner);
+		if (!fromOwnerToNonOwner) {
+			System.err.println("ASSERT: unallowed role switching scenario for ownership request handling");
 			System.err.println("From=" + prevRole.toString() + " To=" + newRole.toString());
 			System.err.println("We will ignore the role switching request");
 		} else {
@@ -200,8 +206,11 @@ public class PeerComXMLRPC implements PeerCommunication {
 				rockyStorage.renounceOwnership();
 				RockyController.role = newRole;
 				roleSwitcherThread.notify();
-			}	
+			}
+			retObj = "Succeed.";
 		}
+		
+		System.out.println("current owner recorded on cloud is=" + rockyStorage.getOwner());
 		
 		return retObj;
 	}

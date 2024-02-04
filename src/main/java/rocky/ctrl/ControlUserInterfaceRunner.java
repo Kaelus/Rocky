@@ -287,6 +287,7 @@ public class ControlUserInterfaceRunner implements Runnable {
 				roleSwitcherThread.notify();
 			}	
 		}
+		System.out.println("current owner recorded on cloud is=" + rockyStorage.getOwner());
 	}
 	
 	public void printCommandUsage() {

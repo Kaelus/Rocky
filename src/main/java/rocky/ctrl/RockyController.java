@@ -45,6 +45,7 @@ public class RockyController {
 	public static String nodeID;
 	
 	public static String lcvdName;
+	public static String cloudTableNamePrefix;
 	
 	public static String workingDir;
 	
@@ -221,16 +222,20 @@ public class RockyController {
 		    	   String[] tokens = line.split("=");
 		    	   String epochPeriodStr = tokens[1];
 		    	   epochPeriod = Integer.parseInt(epochPeriodStr);
+		    	   System.out.println("epochPeriod=" + epochPeriod);
 		       } else if (line.startsWith("prefetchPeriod")) {
 		    	   String[] tokens = line.split("=");
 		    	   String prefetchPeriodStr = tokens[1];
 		    	   prefetchPeriod = Integer.parseInt(prefetchPeriodStr);
+		    	   System.out.println("prefetchPeriod=" + prefetchPeriod);
 		       } else if (line.startsWith("workingDir")) {
 		    	   String[] tokens = line.split("=");
 		    	   workingDir = tokens[1];
+		    	   System.out.println("workingDir=" + workingDir);
 		       } else if (line.startsWith("debugFlag")) {
 		    	   String[] tokens = line.split("=");
 		    	   RockyStorage.debugPrintoutFlag = Boolean.parseBoolean(tokens[1]);
+		    	   System.out.println("RockyStorage.debugPrintoutFlag=" + RockyStorage.debugPrintoutFlag);
 		       } else if (line.startsWith("pComType")) {
 		    	   String[] tokens = line.split("=");
 		    	   String pComTypeStr = tokens[1];
@@ -245,13 +250,21 @@ public class RockyController {
 		    		   System.exit(1);
 		    	   }
 		       } else if (line.startsWith("peerAddress")) {
-		    	   String[] peerTokens = line.split(",");
+		    	   String[] tokens = line.split("=");
+		    	   String peerAddressListStr = tokens[1];
+		    	   String[] peerTokens = peerAddressListStr.split(",");
 		    	   for (int i = 0; i < peerTokens.length; i++) {
+		    		   System.out.println("Add to a list: peerAddress=" + peerTokens[i]);
 		    		   peerAddressList.add(peerTokens[i]);
 		    	   }
 		       } else if (line.startsWith("nbdPort")) {
 		    	   String[] tokens = line.split("=");
 		    	   nbdPort = Integer.parseInt(tokens[1]);
+		    	   System.out.println("nbdPort=" + nbdPort);
+		       } else if (line.startsWith("cloudTableNamePrefix")) {
+		    	   String[] tokens = line.split("=");
+		    	   cloudTableNamePrefix = tokens[1];
+		    	   System.out.println("cloudTableNamePrefix=" + cloudTableNamePrefix);
 		       }
 		    }
 		} catch (FileNotFoundException e) {
