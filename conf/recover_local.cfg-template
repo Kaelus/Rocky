@@ -9,3 +9,5 @@ debugFlag=false
 coordinator=127.0.0.1:10810
 e_a=2
 hasCloudFailed=false
+pComType=XMLRPC
+peerAddress=127.0.0.1:10811,127.0.0.1:10812
