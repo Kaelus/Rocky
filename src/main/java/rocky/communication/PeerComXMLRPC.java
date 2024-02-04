@@ -97,6 +97,10 @@ public class PeerComXMLRPC implements PeerCommunication {
 				break;
 			}
 		}
+		if (sender == null) {
+			DebugLog.elog("ASSERT: could not find proper sender object for ID=" + pID);
+			System.exit(1);
+		}
 		
 		try {
 			srvMsg = sender.send(reqMsg);
@@ -159,7 +163,7 @@ public class PeerComXMLRPC implements PeerCommunication {
 	}
 	
 	public void runServer() {
-		receiver = new ReceiverXMLRPC(Integer.valueOf(RockyController.myPort));
+		receiver = new ReceiverXMLRPC(Integer.valueOf(RockyController.pComPort));
 	}
 
 	public void stopServer() {

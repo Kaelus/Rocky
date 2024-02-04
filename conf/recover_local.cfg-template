@@ -1,4 +1,4 @@
-ip=127.0.0.1:10810
+ip=127.0.0.1:12300
 lcvdName=testinglocal
 rockyMode=recovery
 backendStorageType=dynamoDBLocal
@@ -6,8 +6,9 @@ epochPeriod=60000000
 prefetchPeriod=60000000
 workingDir=..
 debugFlag=false
-coordinator=127.0.0.1:10810
+coordinator=127.0.0.1:12300
 e_a=2
 hasCloudFailed=false
 pComType=XMLRPC
-peerAddress=127.0.0.1:10811,127.0.0.1:10812
+peerAddress=127.0.0.1:12300,127.0.0.1:12301,127.0.0.1:12302
+nbdPort=10810

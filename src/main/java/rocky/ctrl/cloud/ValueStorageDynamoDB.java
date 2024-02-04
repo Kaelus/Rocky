@@ -139,7 +139,8 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
         		System.err.println("Unable to read item: " + key);
         		System.err.println(e.getMessage());
         	} else {
-        		System.out.println("owner exists.");
+        		System.out.println("Unable to read item: " + key);
+        		System.out.println("the key owner does not exist yet.");
         	}
         }
 //        if (retValue == null) {

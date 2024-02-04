@@ -15,5 +15,5 @@ if [ $? -gt 0 ]; then
     exit 1
 fi
 
-mkdir -p $working_dir/data/0
-java -Djava.library.path=$rocky_home/dynamoDB/DynamoDBLocal_lib -jar $rocky_home/dynamoDB/DynamoDBLocal.jar -dbPath $working_dir/data/0 -sharedDb
+mkdir -p $working_dir/data/replication_broker
+java -Djava.library.path=$rocky_home/dynamoDB/DynamoDBLocal_lib -jar $rocky_home/dynamoDB/DynamoDBLocal.jar -dbPath $working_dir/data/replication_broker -sharedDb

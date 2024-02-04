@@ -106,7 +106,7 @@ public class RockyStorage extends FDBStorage {
 		
 		public RockyStorage(String exportName) {
 			super(exportName);
-			prefixPathForLocalStorage = RockyController.workingDir + "/data/" + (RockyController.myPort - RockyController.defaultPort) + "/" + exportName;
+			prefixPathForLocalStorage = RockyController.workingDir + "/data/" + (RockyController.pComPort - RockyController.defaultPCOMPort) + "/" + exportName;
 			cloudEpochBitmapsTableName = exportName + "-cloudEpochBitmapsTable";
 			localEpochBitmapsTableName = prefixPathForLocalStorage + "-localEpochBitmapsTable";
 			cloudBlockSnapshotStoreTableName = exportName + "-cloudBlockSnapshotStoreTable";

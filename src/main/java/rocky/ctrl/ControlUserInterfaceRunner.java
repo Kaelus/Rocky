@@ -218,6 +218,8 @@ public class ControlUserInterfaceRunner implements Runnable {
 			curRole = RockyController.role;
 		}
 		System.out.println("role switching.. current role=" + curRole);
+		System.out.println("my nodeID=" + RockyController.nodeID);
+		System.out.println("current owner is=" + rockyStorage.getOwner());
 		BufferedReader br = new BufferedReader(new InputStreamReader(
 				System.in));
 		System.out.println("[" + loggerID + "] To which role, "

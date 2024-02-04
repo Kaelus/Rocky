@@ -36,9 +36,11 @@ public class RockyController {
 
 	private static Logger log = Logger.getLogger("NBD");
 	
-	public static final Integer defaultPort = 10810;
+	public static final Integer defaultPCOMPort = 12300;
+	public static final Integer defaultNBDPort = 10810;
 	public static String myIP;
-	public static Integer myPort;
+	public static Integer pComPort;
+	public static Integer nbdPort;
 
 	public static String nodeID;
 	
@@ -67,7 +69,8 @@ public class RockyController {
 		System.out.println("Hello, Rocky");
 		//default variable settings
 		myIP = "127.0.0.1";
-		myPort = defaultPort;
+		pComPort = defaultPCOMPort;
+		nbdPort = defaultNBDPort;
 		rockyMode = RockyModeType.Rocky;
 		backendStorage = BackendStorageType.DynamoDBLocal;
 		role = RockyControllerRoleType.None;
@@ -84,11 +87,12 @@ public class RockyController {
 			parseRockyControllerConfig(args[1]);
 		}
 		//nodeID = "node" + getProcID();
-		nodeID = myIP + ":" + myPort;
+		nodeID = myIP + ":" + pComPort;
 		
 		//print out variable settings
 		System.out.println("myIP=" + myIP);
-		System.out.println("myPort=" + myPort);
+		System.out.println("pComPort=" + pComPort);
+		System.out.println("nbdPort=" + nbdPort);
 		System.out.println("nodeID=" + nodeID);
 		System.out.println("rockyMode=" + rockyMode);
 		System.out.println("backendStorageType=" + backendStorage);
@@ -100,7 +104,7 @@ public class RockyController {
 		} else { // start 'rocky' storage mode
 			ExecutorService es = Executors.newCachedThreadPool();
 		    log.info("Listening for nbd-client connections");
-		    ServerSocket ss = new ServerSocket(myPort);
+		    ServerSocket ss = new ServerSocket(nbdPort);
 		    while (true) {
 		      Socket accept = ss.accept();
 		      es.submit(() -> {
@@ -171,8 +175,8 @@ public class RockyController {
 					String ipPortStr = tokens[1];
 					String[] ipPortStrArr = ipPortStr.split(":");
 					myIP = ipPortStrArr[0];
-					myPort = Integer.parseInt(ipPortStrArr[1]);
-					nodeID = myIP + ":" + myPort;					
+					pComPort = Integer.parseInt(ipPortStrArr[1]);
+					nodeID = myIP + ":" + pComPort;					
 				} else if (line.startsWith("lcvdName")) {
 		    	   String[] tokens = line.split("=");
 		    	   lcvdName = tokens[1];
@@ -245,7 +249,10 @@ public class RockyController {
 		    	   for (int i = 0; i < peerTokens.length; i++) {
 		    		   peerAddressList.add(peerTokens[i]);
 		    	   }
-		       } 
+		       } else if (line.startsWith("nbdPort")) {
+		    	   String[] tokens = line.split("=");
+		    	   nbdPort = Integer.parseInt(tokens[1]);
+		       }
 		    }
 		} catch (FileNotFoundException e) {
 			e.printStackTrace();
