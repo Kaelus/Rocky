@@ -687,7 +687,7 @@ public class RockyStorage extends FDBStorage {
 			long latestEpoch = -1;
 			
 			ownerID = getOwner();
-			if (ownerID != null) {
+			if (ownerID != null && !ownerID.equals(RockyController.nodeID)) {
 				Message ackMsg = pCom.sendPeerRequest(ownerID, PeerCommunication.PeerRequestType.OWNERSHIP_REQUEST);
 				if (ackMsg.msgType != MessageType.MSG_T_ACK) {
 					DebugLog.elog("ERROR: We haven't implemented retry for peer request for ownership yet. It is error.");
