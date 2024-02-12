@@ -705,6 +705,7 @@ public class RockyStorage extends FDBStorage {
 			}
 			latestEpoch = ByteUtils.bytesToLong(latestEpochBytes);
 			updateLocalStateToBecomeOwner(prefetchedEpoch, latestEpoch);
+			epochCnt = getEpoch();
 			try {
 				cloudBlockSnapshotStore.put("owner", RockyController.nodeID.getBytes());
 			} catch (IOException e) {
