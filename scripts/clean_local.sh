@@ -12,6 +12,7 @@ sudo echo "clean_local.sh starts"
 echo "removing dynamodb data.."
 #rm -f $working_dir/data/replication_broker/shared-local-instance.db
 rm -rf $working_dir/data/replication_broker
+mkdir -p $working_dir/data/replication_broker
 
 num_node=`ls ${working_dir}/conf | wc -l`
 i=0
@@ -22,10 +23,10 @@ while [ $i -lt $num_node ]; do
     echo "removing leveldb data.."
     #rm -rf $working_dir/data/$i/testing-*
     rm -rf $working_dir/data/$i
+    mkdir -p $working_dir/data/$i
     echo "removing log data.."
     rm -rf $working_dir/log/$i
-    echo "removing conf data.."
-    rm -rf $working_dir/conf/$i
+    mkdir -p $working_dir/log/$i
     i=`expr $i + 1`
 done
 
