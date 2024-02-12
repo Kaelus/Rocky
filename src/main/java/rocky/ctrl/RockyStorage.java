@@ -716,7 +716,6 @@ public class RockyStorage extends FDBStorage {
 		
 		public void renounceOwnership() {
 			stopCloudPackageManager();
-			instantCloudFlushing();
 			cloudBlockSnapshotStore.remove("owner");
 		}
 		
