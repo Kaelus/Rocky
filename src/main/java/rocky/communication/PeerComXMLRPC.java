@@ -7,6 +7,7 @@ import rocky.ctrl.RockyController;
 import rocky.ctrl.RockyStorage;
 import rocky.ctrl.utils.DebugLog;
 import rocky.ctrl.utils.ObjectSerializer;
+import rocky.recovery.RecoveryController;
 
 public class PeerComXMLRPC implements PeerCommunication {
 
@@ -86,6 +87,16 @@ public class PeerComXMLRPC implements PeerCommunication {
 		Message reqMsg = new Message();
 		if (prt.equals(PeerRequestType.OWNERSHIP_REQUEST)) {
 			reqMsg.msgType = MessageType.PEER_REQ_T_OWNERSHIP;
+		} else if (prt.equals(PeerRequestType.CLOUD_FAILURE_RECOVERY_PREP_REQUEST)) {
+			reqMsg.msgType = MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_PREP;
+		} else if (prt.equals(PeerRequestType.CLOUD_FAILURE_RECOVERY_IP_REQUEST)) {
+			reqMsg.msgType = MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_IP;
+			String e1e2 = RecoveryController.latestOwnerEpoch + ";" + RecoveryController.latestPrefetchEpoch;
+			reqMsg.msgContent = e1e2;
+		} else if (prt.equals(PeerRequestType.CLOUD_FAILURE_RECOVERY_IRP_REQUEST)) {
+			reqMsg.msgType = MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_IRP;
+		} else if (prt.equals(PeerRequestType.CLOUD_FAILURE_RECOVERY_FRP_REQUEST)) {
+			reqMsg.msgType = MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_FRP;
 		} else {
 			DebugLog.elog("Unknown PeerRequestType is given=" + prt.toString());
 		}
@@ -153,6 +164,46 @@ public class PeerComXMLRPC implements PeerCommunication {
 			}
 			ackMsg.msgContent = retObj;
 			break;
+		case MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_PREP:
+			retObj = handleDeadCloudRecoveryPrep(pMsg);
+			ackMsg = new Message();
+			if (retObj != null) {
+				ackMsg.msgType = MessageType.MSG_T_ACK;
+			} else {
+				ackMsg.msgType = MessageType.MSG_T_NACK;
+			}
+			ackMsg.msgContent = retObj;
+			break;
+		case MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_IP:
+			retObj = handleDeadCloudRecoveryIP(pMsg);
+			ackMsg = new Message();
+			if (retObj != null) {
+				ackMsg.msgType = MessageType.MSG_T_ACK;
+			} else {
+				ackMsg.msgType = MessageType.MSG_T_NACK;
+			}
+			ackMsg.msgContent = retObj;
+			break;
+		case MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_IRP:
+			retObj = handleDeadCloudRecoveryIRP(pMsg);
+			ackMsg = new Message();
+			if (retObj != null) {
+				ackMsg.msgType = MessageType.MSG_T_ACK;
+			} else {
+				ackMsg.msgType = MessageType.MSG_T_NACK;
+			}
+			ackMsg.msgContent = retObj;
+			break;
+		case MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_FRP:
+			retObj = handleDeadCloudRecoveryFRP(pMsg);
+			ackMsg = new Message();
+			if (retObj != null) {
+				ackMsg.msgType = MessageType.MSG_T_ACK;
+			} else {
+				ackMsg.msgType = MessageType.MSG_T_NACK;
+			}
+			ackMsg.msgContent = retObj;
+			break;
 		default:
 			break;
 		}
@@ -212,6 +263,101 @@ public class PeerComXMLRPC implements PeerCommunication {
 		
 		System.out.println("current owner recorded on cloud is=" + rockyStorage.getOwner());
 		
+		return retObj;
+	}
+	
+	public Object handleDeadCloudRecoveryPrep(Message pMsg) {
+		Object retObj = null;
+		String nonCoordinatorID = (String) pMsg.senderID;
+		if (RockyController.peerAddressList.contains(nonCoordinatorID)) {
+			synchronized(RecoveryController.nonCoordinatorWaitingList) {
+				RecoveryController.nonCoordinatorWaitingList.add(nonCoordinatorID);
+				RecoveryController.nonCoordinatorWaitingList.notify();
+			}
+			synchronized(RecoveryController.canSendResponse) {
+				try {
+					RecoveryController.canSendResponse.wait();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			retObj = RecoveryController.hasCloudFailed + ";" + RecoveryController.epochEa;
+		}
+		return retObj;
+	}
+	
+	public Object handleDeadCloudRecoveryIP(Message pMsg) {
+		Object retObj = null;
+		String nonCoordinatorID = (String) pMsg.senderID;
+		String e1e2 = (String) pMsg.msgContent;
+		Long ownerEpoch = Long.parseLong(e1e2.split(";")[0]);
+		Long prefetchEpoch = Long.parseLong(e1e2.split(";")[1]);
+		DebugLog.log("nonCoordinatorID=" + nonCoordinatorID + " ownerEpoch=" + ownerEpoch + " prefetchEpoch=" + prefetchEpoch);
+		synchronized(RecoveryController.epochLeader) {
+			if (ownerEpoch > RecoveryController.latestOwnerEpoch) {
+				DebugLog.log("Updating latestOwnerEpoch and epochLeader:");
+				DebugLog.log("Previously, latestOwnerEpoch=" + RecoveryController.latestOwnerEpoch + " epochLeader=" + RecoveryController.epochLeader);
+				RecoveryController.latestOwnerEpoch = ownerEpoch;
+				RecoveryController.epochLeader = nonCoordinatorID;
+				DebugLog.log("After updating, latestOwnerEpoch=" + RecoveryController.latestOwnerEpoch + " epochLeader=" + RecoveryController.epochLeader);
+			}
+		}
+		synchronized(RecoveryController.prefetchLeader) {
+			if (prefetchEpoch > RecoveryController.latestPrefetchEpoch) {
+				DebugLog.log("Updating latestPrefetchEpoch and prefetchLeader:");
+				DebugLog.log("Previously, latestPrefetchEpoch=" + RecoveryController.latestPrefetchEpoch + " prefetchLeader=" + RecoveryController.prefetchLeader);
+				RecoveryController.latestPrefetchEpoch = prefetchEpoch;
+				RecoveryController.prefetchLeader = nonCoordinatorID;
+				DebugLog.log("After updating, latestPrefetchEpoch=" + RecoveryController.latestPrefetchEpoch + " prefetchLeader=" + RecoveryController.prefetchLeader);
+
+			}
+		}
+		if (RockyController.peerAddressList.contains(nonCoordinatorID)) {
+			synchronized(RecoveryController.nonCoordinatorWaitingList) {
+				RecoveryController.nonCoordinatorWaitingList.add(nonCoordinatorID);
+				RecoveryController.nonCoordinatorWaitingList.notify();
+			}
+			synchronized(RecoveryController.canSendResponse) {
+				try {
+					RecoveryController.canSendResponse.wait();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			retObj = RecoveryController.latestOwnerEpoch + ";" + RecoveryController.epochLeader + ";"
+					+ RecoveryController.latestPrefetchEpoch + ";" + RecoveryController.prefetchLeader;
+		}
+
+		return retObj;
+	}
+	
+	public Object handleDeadCloudRecoveryIRP(Message pMsg) {
+		Object retObj = null;
+		
+		String nonCoordinatorID = (String) pMsg.senderID;
+		if (RockyController.peerAddressList.contains(nonCoordinatorID)) {
+			synchronized(RecoveryController.nonCoordinatorWaitingList) {
+				RecoveryController.nonCoordinatorWaitingList.add(nonCoordinatorID);
+				RecoveryController.nonCoordinatorWaitingList.notify();
+			}
+			synchronized(RecoveryController.canSendResponse) {
+				try {
+					RecoveryController.canSendResponse.wait();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			retObj = RecoveryController.contiguousEpochListL;
+		}
+		
+		return retObj;
+	}
+	
+	public Object handleDeadCloudRecoveryFRP(Message pMsg) {
+		Object retObj = null;
 		return retObj;
 	}
 	

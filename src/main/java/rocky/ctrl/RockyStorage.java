@@ -636,7 +636,9 @@ public class RockyStorage extends FDBStorage {
 						System.out.println("epochBitmap is received for epoch=" + i);
 					}
 					BitSet epochBitmapBitSet = BitSet.valueOf(epochBitmap);
-					localEpochBitmaps.put(i + "-bitmap", epochBitmap);
+					if (!epochOwner.equals(RockyController.nodeID)) {
+						localEpochBitmaps.put(i + "-bitmap", epochBitmap);
+					}
 					byte[] thisEpochBytes = ByteUtils.longToBytes(i);
 					if (debugPrintoutFlag) {
 						System.out.println("about to enter the loop updating versionMap");
@@ -900,6 +902,20 @@ public class RockyStorage extends FDBStorage {
 										e.printStackTrace();
 									}
 									prefetchedEpoch = latestEpoch;
+									
+									// locally record epochs for which prefetch is completed
+									try {
+										byte[] pePrefixBytes = localBlockSnapshotStore.get("prefetchedEpochs");
+										String pePrefixString = "";
+										if (pePrefixBytes != null) {
+											pePrefixString = new String(pePrefixBytes, Charsets.UTF_8);
+										}
+										localBlockSnapshotStore.put("prefetchedEpochs", ((String)pePrefixString + ";" + prefetchedEpoch).getBytes());
+									} catch (IOException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+									
 								}
 							}
 						}
@@ -1000,6 +1016,8 @@ public class RockyStorage extends FDBStorage {
 		public List<BitSet> fetchNextEpochBitmaps(long latestEpoch, long myPrefetchedEpoch) {
 			List<BitSet> retList = null;
 			byte[] epochBitmap = null;
+			byte[] epochOwnerBytes = null;
+			String epochOwner = null;
 			for (long i = myPrefetchedEpoch + 1; i <= latestEpoch; i++) {
 				if (debugPrintoutFlag) {
 					System.out.println("myPrefetchedEpoch=" + myPrefetchedEpoch 
@@ -1010,34 +1028,42 @@ public class RockyStorage extends FDBStorage {
 					if (epochBitmap == null) {
 						System.err.println("ASSERT: failed to fetch " + i + "-bitmap");
 						System.exit(1);
-					} else {
-						if (debugPrintoutFlag) {
-							System.out.println("epochBitmap is received for epoch=" + i);
-						}
-						if (retList == null) {
-							retList = new ArrayList<BitSet>();
-						}
-						BitSet epochBitmapBitSet = BitSet.valueOf(epochBitmap);
-						retList.add(epochBitmapBitSet);
-						localEpochBitmaps.put(i + "-bitmap", epochBitmap);
-						byte[] thisEpochBytes = ByteUtils.longToBytes(i);
-						if (debugPrintoutFlag) {
-							System.out.println("about to enter the loop updating versionMap");
-						}
-						for (int j = epochBitmapBitSet.nextSetBit(0); j >= 0; j = epochBitmapBitSet.nextSetBit(j+1)) {
-							// operate on index i here
-						    if (i == Integer.MAX_VALUE) {
-						    	break; // or (i+1) would overflow
-						    }
-						    versionMap.put(j + "", thisEpochBytes);
-						}
-						//while((j = epochBitmapBitSet.nextSetBit(j)) >= 0) {
-						//	versionMap.put(j + "", thisEpochBytes);
-						//}
-						if (debugPrintoutFlag) {
-							System.out.println("finished with updating versionMap for epoch=" + i);
-						}
 					}
+					epochOwnerBytes = cloudEpochBitmaps.get(i + "-owner");
+					if (epochOwnerBytes == null) {
+						System.err.println("ASSERT: failed to download " + i + "-owner");
+						System.exit(1);
+					}
+					epochOwner = new String(epochOwnerBytes, Charsets.UTF_8); 
+					if (debugPrintoutFlag) {
+						System.out.println("epochBitmap is received for epoch=" + i);
+					}
+					if (retList == null) {
+						retList = new ArrayList<BitSet>();
+					}
+					BitSet epochBitmapBitSet = BitSet.valueOf(epochBitmap);
+					retList.add(epochBitmapBitSet);
+					if (!epochOwner.equals(RockyController.nodeID)) {
+						localEpochBitmaps.put(i + "-bitmap", epochBitmap);
+					}
+					byte[] thisEpochBytes = ByteUtils.longToBytes(i);
+					if (debugPrintoutFlag) {
+						System.out.println("about to enter the loop updating versionMap");
+					}
+					for (int j = epochBitmapBitSet.nextSetBit(0); j >= 0; j = epochBitmapBitSet.nextSetBit(j+1)) {
+						// operate on index i here
+					    if (i == Integer.MAX_VALUE) {
+					    	break; // or (i+1) would overflow
+					    }
+					    versionMap.put(j + "", thisEpochBytes);
+					}
+					//while((j = epochBitmapBitSet.nextSetBit(j)) >= 0) {
+					//	versionMap.put(j + "", thisEpochBytes);
+					//}
+					if (debugPrintoutFlag) {
+						System.out.println("finished with updating versionMap for epoch=" + i);
+					}
+
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -1172,6 +1198,15 @@ public class RockyStorage extends FDBStorage {
 					cloudBlockSnapshotStore.put("EpochCount", ByteUtils.longToBytes(curEpoch));
 					cloudEpochBitmaps.put(RockyController.nodeID + "-pBm", presenceBitmap.toByteArray());
 					cloudEpochBitmaps.put(Long.toString(curEpoch) + "-owner", RockyController.nodeID.getBytes());
+					// record epochs the node was the onwer for
+					byte[] eoPrefixBytes = localEpochBitmaps.get("epochsOwned");
+					String eoPrefixString = "";
+					if (eoPrefixBytes != null) {
+						eoPrefixString = new String(eoPrefixBytes, Charsets.UTF_8);
+					}
+					localEpochBitmaps.put("epochsOwned", ((String) eoPrefixString + ";" + curEpoch).getBytes());
+					// also record dirty bitmap (epoch bitmap on cloud) on this node too
+					localEpochBitmaps.put(Long.toString(curEpoch) + "-bitmap", dmBytes);
 					epochCnt++;
 				} catch (IOException e) {
 					// TODO Auto-generated catch block

@@ -12,6 +12,10 @@ public class MessageType {
 	
 	// Peer Request Message Types
 	public static final int PEER_REQ_T_OWNERSHIP = 1;
+	public static final int PEER_REQ_T_CLOUD_FAILURE_RECOVERY_PREP = 2;
+	public static final int PEER_REQ_T_CLOUD_FAILURE_RECOVERY_IP = 3;
+	public static final int PEER_REQ_T_CLOUD_FAILURE_RECOVERY_IRP = 4;
+	public static final int PEER_REQ_T_CLOUD_FAILURE_RECOVERY_FRP = 5;
 	
 	// Client to Phone message type constants
 	public static final int CM_T_DW_F = 0;
