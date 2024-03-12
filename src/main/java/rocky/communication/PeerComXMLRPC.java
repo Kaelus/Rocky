@@ -93,6 +93,7 @@ public class PeerComXMLRPC implements PeerCommunication {
 			reqMsg.msgType = MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_IP;
 			String e1e2 = RecoveryController.latestOwnerEpoch + ";" + RecoveryController.latestPrefetchEpoch;
 			reqMsg.msgContent = e1e2;
+			DebugLog.log("[NC][IP] sendPeerRequest is sending the Coordinator data=" + e1e2);
 		} else if (prt.equals(PeerRequestType.CLOUD_FAILURE_RECOVERY_IRP_REQUEST)) {
 			reqMsg.msgType = MessageType.PEER_REQ_T_CLOUD_FAILURE_RECOVERY_IRP;
 		} else if (prt.equals(PeerRequestType.CLOUD_FAILURE_RECOVERY_FRP_REQUEST)) {
@@ -267,9 +268,12 @@ public class PeerComXMLRPC implements PeerCommunication {
 	}
 	
 	public Object handleDeadCloudRecoveryPrep(Message pMsg) {
+		DebugLog.log("[CO][PR] enter handleDeadCloudRecoveryPrep..");
 		Object retObj = null;
 		String nonCoordinatorID = (String) pMsg.senderID;
+		DebugLog.log("[CO][PR] recieved a request from the Non-Coordinator=" + nonCoordinatorID);
 		if (RockyController.peerAddressList.contains(nonCoordinatorID)) {
+			DebugLog.log("[CO][PR] the request is from a valid Non-Coordinator");
 			synchronized(RecoveryController.nonCoordinatorWaitingList) {
 				RecoveryController.nonCoordinatorWaitingList.add(nonCoordinatorID);
 				RecoveryController.nonCoordinatorWaitingList.notify();
@@ -283,33 +287,36 @@ public class PeerComXMLRPC implements PeerCommunication {
 				}
 			}
 			retObj = RecoveryController.hasCloudFailed + ";" + RecoveryController.epochEa;
+			DebugLog.log("[CO][PR] the response is sent to the Non-Coordinator=" + nonCoordinatorID + " with the data=" + (String) retObj);
 		}
+		DebugLog.log("[CO][PR] exiting handleDeadCloudRecoveryPrep..");
 		return retObj;
 	}
 	
 	public Object handleDeadCloudRecoveryIP(Message pMsg) {
+		DebugLog.log("[CO][IP] enter handleDeadCloudRecoveryIP..");
 		Object retObj = null;
 		String nonCoordinatorID = (String) pMsg.senderID;
 		String e1e2 = (String) pMsg.msgContent;
 		Long ownerEpoch = Long.parseLong(e1e2.split(";")[0]);
 		Long prefetchEpoch = Long.parseLong(e1e2.split(";")[1]);
-		DebugLog.log("nonCoordinatorID=" + nonCoordinatorID + " ownerEpoch=" + ownerEpoch + " prefetchEpoch=" + prefetchEpoch);
+		DebugLog.log("[CO][IP] nonCoordinatorID=" + nonCoordinatorID + " ownerEpoch=" + ownerEpoch + " prefetchEpoch=" + prefetchEpoch);
 		synchronized(RecoveryController.epochLeader) {
 			if (ownerEpoch > RecoveryController.latestOwnerEpoch) {
-				DebugLog.log("Updating latestOwnerEpoch and epochLeader:");
-				DebugLog.log("Previously, latestOwnerEpoch=" + RecoveryController.latestOwnerEpoch + " epochLeader=" + RecoveryController.epochLeader);
+				DebugLog.log("[CO][IP] Updating latestOwnerEpoch and epochLeader:");
+				DebugLog.log("[CO][IP] Previously, latestOwnerEpoch=" + RecoveryController.latestOwnerEpoch + " epochLeader=" + RecoveryController.epochLeader);
 				RecoveryController.latestOwnerEpoch = ownerEpoch;
 				RecoveryController.epochLeader = nonCoordinatorID;
-				DebugLog.log("After updating, latestOwnerEpoch=" + RecoveryController.latestOwnerEpoch + " epochLeader=" + RecoveryController.epochLeader);
+				DebugLog.log("[CO][IP] After updating, latestOwnerEpoch=" + RecoveryController.latestOwnerEpoch + " epochLeader=" + RecoveryController.epochLeader);
 			}
 		}
 		synchronized(RecoveryController.prefetchLeader) {
 			if (prefetchEpoch > RecoveryController.latestPrefetchEpoch) {
-				DebugLog.log("Updating latestPrefetchEpoch and prefetchLeader:");
-				DebugLog.log("Previously, latestPrefetchEpoch=" + RecoveryController.latestPrefetchEpoch + " prefetchLeader=" + RecoveryController.prefetchLeader);
+				DebugLog.log("[CO][IP] Updating latestPrefetchEpoch and prefetchLeader:");
+				DebugLog.log("[CO][IP] Previously, latestPrefetchEpoch=" + RecoveryController.latestPrefetchEpoch + " prefetchLeader=" + RecoveryController.prefetchLeader);
 				RecoveryController.latestPrefetchEpoch = prefetchEpoch;
 				RecoveryController.prefetchLeader = nonCoordinatorID;
-				DebugLog.log("After updating, latestPrefetchEpoch=" + RecoveryController.latestPrefetchEpoch + " prefetchLeader=" + RecoveryController.prefetchLeader);
+				DebugLog.log("[CO][IP] After updating, latestPrefetchEpoch=" + RecoveryController.latestPrefetchEpoch + " prefetchLeader=" + RecoveryController.prefetchLeader);
 
 			}
 		}
@@ -329,11 +336,13 @@ public class PeerComXMLRPC implements PeerCommunication {
 			retObj = RecoveryController.latestOwnerEpoch + ";" + RecoveryController.epochLeader + ";"
 					+ RecoveryController.latestPrefetchEpoch + ";" + RecoveryController.prefetchLeader;
 		}
-
+		DebugLog.log("[CO][IP] exiting handleDeadCloudRecoveryIP..");
 		return retObj;
 	}
 	
 	public Object handleDeadCloudRecoveryIRP(Message pMsg) {
+		DebugLog.log("[CO][IRP] enter handleDeadCloudRecoveryIRP..");
+		
 		Object retObj = null;
 		
 		String nonCoordinatorID = (String) pMsg.senderID;
@@ -352,12 +361,15 @@ public class PeerComXMLRPC implements PeerCommunication {
 			}
 			retObj = RecoveryController.contiguousEpochListL;
 		}
-		
+
+		DebugLog.log("[CO][IRP] exiting handleDeadCloudRecoveryIRP..");
 		return retObj;
 	}
 	
 	public Object handleDeadCloudRecoveryFRP(Message pMsg) {
+		DebugLog.log("[CO][FRP] enter handleDeadCloudRecoveryFRP..");
 		Object retObj = null;
+		DebugLog.log("[CO][FRP] exiting handleDeadCloudRecoveryFRP..");
 		return retObj;
 	}
 	

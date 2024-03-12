@@ -53,19 +53,35 @@ while [ $i -lt $num_node ]; do
     echo "calculating peerAddress for local testing.."
     peer_address=""
     j=0
+    echo "num_node=${num_node}"
+    echo "client_port=${client_port}"
     while [ $j -lt $num_node ]; do
-	new_port=`expr 12300 + $j`
-	if [ ! $client_port -eq $new_port ]; then
+	new_peer_port=`expr 12300 + $j`
+	if [ ! $client_port -eq $new_peer_port ]; then
+	    echo "chk1"
 	    if [ "$peer_address" = "" ]; then
-		peer_address="127.0.0.1:${new_port}"
+		echo "chk1-1"
+		peer_address="127.0.0.1:${new_peer_port}"
 	    else
-		peer_address="${peer_address},127.0.0.1:${new_port}"
+		echo "chk1-2"
+		peer_address="${peer_address},127.0.0.1:${new_peer_port}"
+	    fi
+	else
+	    echo "chk2"
+	    if [ "$peer_address" = "" ]; then
+		echo "chk2-1"
+		peer_address="127.0.0.1:${new_peer_port}"
+	    else
+		echo "chk2-2"
+		peer_address="${peer_address},127.0.0.1:${new_peer_port}"
 	    fi
 	fi
 	j=`expr $j + 1`
     done
+    echo "peerAddress=${peer_address}"
     sed -i -e "13s|.*|peerAddress=${peer_address}|" $conf_dir/$i/rocky_local.cfg
-
+    echo "updating rocky_local.cfg at=$conf_dir/$i/rocky_local.cfg"
+    
     echo "check if volume (i.e. lcvdName) exists.."
     java -jar $rocky_home/nbdfdb/nbdcli.jar list | grep testinglocal${i}
     if [ $? -gt 0 ]; then

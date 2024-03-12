@@ -231,46 +231,56 @@ public class RecoveryController {
 	}
 	
 	protected static void waitsForNonCoordinators() {
-			synchronized(nonCoordinatorWaitingList) {
-				while (!arrayListsHasSameContents(nonCoordinatorWaitingList, RockyController.peerAddressList)) {
-					try {
-						nonCoordinatorWaitingList.wait();
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
+		DebugLog.log("[CO][*] entering waitsForNonCoordinators()");
+		synchronized(nonCoordinatorWaitingList) {
+			while (!arrayListsHasSameContents(nonCoordinatorWaitingList, RockyController.peerAddressList)) {
+				try {
+					nonCoordinatorWaitingList.wait();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
 			}
+		}
+		DebugLog.log("[CO][*] exiting waitsForNonCoordinators()");
 	}
 	
 	protected static void prepareRecoveryDeadCloud() {
+		DebugLog.log("[*][PR] entered prepareRecoveryDeadCloud()");
 		if (isCoordinator()) {
 			nonCoordinatorWaitingList.clear();
+			DebugLog.log("[CO][PR] before calling waitsForNonCoordinators..");
 			waitsForNonCoordinators();
+			DebugLog.log("[CO][PR] received from all Non-Coordinators. About to send response..");
 			synchronized(canSendResponse) {
 				canSendResponse.notifyAll();
 			}
 		} else {
+			DebugLog.log("[NC][PR] before calling sendPeerRequest..");
 			Message ackMsg = RockyStorage.pCom.sendPeerRequest(coordinatorID, PeerCommunication.PeerRequestType.CLOUD_FAILURE_RECOVERY_PREP_REQUEST);
 			if (ackMsg.msgType != MessageType.MSG_T_ACK) {
-				DebugLog.elog("ERROR: We haven't implemented retry for peer request for cloud failure recovery preparation yet. It is error.");
+				DebugLog.elog("[NC][PR] ERROR: We haven't implemented retry for peer request for cloud failure recovery preparation yet. It is error.");
 				System.exit(1);
 			}
 			String retStr = (String) ackMsg.msgContent;
 			if (retStr == null) {
-				DebugLog.elog("ASSERT: server sents null content for ack");
+				DebugLog.elog("[NC][PR] ASSERT: server sents null content for ack");
 				System.exit(1);
 			}
 			hasCloudFailed = Boolean.parseBoolean(retStr.split(";")[0]);
 			epochEa = Long.parseLong(retStr.split(";")[1]);
-			DebugLog.log("Server sent: hasCloudFailed=" + hasCloudFailed + " and epochEa=" + epochEa);
+			DebugLog.log("[NC][PR] Server sent: hasCloudFailed=" + hasCloudFailed + " and epochEa=" + epochEa);
 		}
+		DebugLog.log("[*][PR] exiting prepareRecoveryDeadCloud()");
 	}
 	
 	protected static void initializationProcedure() {
+		DebugLog.log("[*][IP] entered initializationProcedure()");
 		if (isCoordinator()) {
 			nonCoordinatorWaitingList.clear();
+			DebugLog.log("[CO][IP] before calling waitsForNonCoordinators..");
 			waitsForNonCoordinators();
+			DebugLog.log("[CO][IP] received from all Non-Coordinators. About to send response..");
 			synchronized(canSendResponse) {
 				canSendResponse.notifyAll();
 			}
@@ -308,6 +318,7 @@ public class RecoveryController {
 						}
 					}
 				}
+				DebugLog.log("[NC][IP] before calling sendPeerRequest..");
 				Message ackMsg = RockyStorage.pCom.sendPeerRequest(coordinatorID, PeerCommunication.PeerRequestType.CLOUD_FAILURE_RECOVERY_IP_REQUEST);
 				if (ackMsg.msgType != MessageType.MSG_T_ACK) {
 					DebugLog.elog("ERROR: We haven't implemented retry for peer request for cloud failure recovery initialization procedure yet. It is error.");
@@ -323,11 +334,14 @@ public class RecoveryController {
 				epochLeader = retStrTokens[1];
 				latestPrefetchEpoch = Long.parseLong(retStrTokens[2]);
 				prefetchLeader = retStrTokens[3];
+				DebugLog.log("[NC][IP] received latestOwnerEpoch=" + latestOwnerEpoch + " epochLeader=" + epochLeader 
+						+ " latestPrefetchEpoch=" + latestPrefetchEpoch + " prefetchLeader=" + prefetchLeader);
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
+		DebugLog.log("[*][IP] exiting initializationProcedure()");
 	}
 	
 	private static boolean isPrefetchLeader() {
@@ -341,6 +355,7 @@ public class RecoveryController {
 	}
 	
 	private static void uploadEpochBitmapsForEpochsOwned() {
+		DebugLog.log("[*][IRP] entered uploadEpochBitmapsForEpochsOwned()");
 		long beginEpoch = 1;
 		long endEpoch = latestOwnerEpoch;	
 		ArrayList<String> epochsOwned = null;
@@ -351,16 +366,23 @@ public class RecoveryController {
 			String[] epochsOwnedStrArr = epochsOwnedStr.split(";");
 			epochsOwned = new ArrayList<String>();
 			for (int i = 0; i < epochsOwnedStrArr.length; i++) {
+				DebugLog.log("[*][IRP] This Node ID=" + RockyController.nodeID + "; adding an epoch owned=" + epochsOwnedStrArr[i]);
 				epochsOwned.add(epochsOwnedStrArr[i]);
 			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		DebugLog.log("[*][IRP] This Node ID=" + RockyController.nodeID + "; iterating from begin epoch=" + beginEpoch + " to end epoch=" + endEpoch);
 		for (long i = beginEpoch; i <= endEpoch; i++) {
 			if (epochsOwned.contains(i + "")) {
+				DebugLog.log("[*][IRP] This Node ID=" + RockyController.nodeID + "; updating epoch bitmap and epoch owner on cloud for epoch=" + i);
 				try {
 					epochBitmap = RockyStorage.localEpochBitmaps.get(i + "-bitmap");
+					if (epochBitmap == null) {
+						DebugLog.elog("ASSERT: epochBitmap is null for owned epoch=" + i);
+						System.exit(1);
+					}
 					RockyStorage.cloudEpochBitmaps.put(i + "-bitmap", epochBitmap);
 					RockyStorage.cloudEpochBitmaps.put(i + "-owner", RockyController.nodeID.getBytes());
 				} catch (IOException e) {
@@ -369,10 +391,11 @@ public class RecoveryController {
 				}
 			}
 		}
+		DebugLog.log("[*][IRP] exiting uploadEpochBitmapsForEpochsOwned()");
 	}
 	
 	private static void uploadCoherentBlockDeviceSnapshot() {
-		System.out.println("uploadCoherentBlockDeviceSnapshot entered");
+		DebugLog.log("[*][IRP] entering uploadCoherentBlockDeviceSnapshot()");
 		byte[] epochBitmap = null;
 		long beginEpoch = 1;
 		long endEpoch = latestPrefetchEpoch;
@@ -438,17 +461,25 @@ public class RecoveryController {
 				e.printStackTrace();
 			}
 		}
-		System.out.println("uploadCoherentBlockDeviceSnapshot is done");
+		DebugLog.log("[*][IRP] exiting uploadCoherentBlockDeviceSnapshot()");
 	}
 	
 	protected static void constructContiguousEpochList() {
+		DebugLog.log("[CO][IRP] entering constructContiguousEpochList()");
 		contiguousEpochListL = "";
 		byte[] epochOwnerBytes = null;
 		String epochOwnerString = null;
+		DebugLog.log("[CO][IRP] iterating from epoch=" + (latestPrefetchEpoch + 1) 
+				+ " to epoch=" + (latestOwnerEpoch - 1));
 		for (long i = latestPrefetchEpoch + 1; i < latestOwnerEpoch; i++) {
 			try {
 				epochOwnerBytes = RockyStorage.cloudEpochBitmaps.get(i + "-owner");
+				if (epochOwnerBytes == null) {
+					DebugLog.elog("[CO][IRP] ASSERT: epoch Owner for epoch=" + i + " is null");
+					System.exit(1);
+				}
 				epochOwnerString = new String(epochOwnerBytes, Charsets.UTF_8);
+				DebugLog.log("[CO][IRP] epoch owner=" + epochOwnerString + " exists; add a epoch=" + i + " to the contiguous epoch list L.");
 				if (RockyController.peerAddressList.contains(epochOwnerString)) {
 					contiguousEpochListL += i + ";";
 				} else {
@@ -459,36 +490,45 @@ public class RecoveryController {
 				e.printStackTrace();
 			}
 		}
+		DebugLog.log("[CO][IRP] exiting constructContiguousEpochList()");
 	}
 	
 	protected static void initialRecoveryProcedure() {
-
+		DebugLog.log("[*][IRP] entering initialRecoveryProcedure()");
+		
 		uploadEpochBitmapsForEpochsOwned();
 		
 		if (isPrefetchLeader()) {
+			DebugLog.log("[*][IRP] This node ID=" + RockyController.nodeID + " is the prefetch leader");
 			uploadCoherentBlockDeviceSnapshot();
 		}
 		
 		if (isCoordinator()) {
 			nonCoordinatorWaitingList.clear();
+			DebugLog.log("[CO][IRP] before calling waitsForNonCoordinators..");
 			waitsForNonCoordinators();
+			DebugLog.log("[CO][IRP] received from all Non-Coordinators. About to construct contiguous epoch list L..");
 			constructContiguousEpochList();
+			DebugLog.log("[CO][IRP] done with constructing a contiguous epoch list L. About to send response to non-coordinators..");
 			synchronized(canSendResponse) {
 				canSendResponse.notifyAll();
 			}
 		} else {
+			DebugLog.log("[NC][IRP] before calling sendPeerRequest..");
 			Message ackMsg = RockyStorage.pCom.sendPeerRequest(coordinatorID, PeerCommunication.PeerRequestType.CLOUD_FAILURE_RECOVERY_IRP_REQUEST);
 			if (ackMsg.msgType != MessageType.MSG_T_ACK) {
-				DebugLog.elog("ERROR: We haven't implemented retry for peer request for cloud failure recovery initialization procedure yet. It is error.");
+				DebugLog.elog("[NC][IRP] ERROR: We haven't implemented retry for peer request for cloud failure recovery initialization procedure yet. It is error.");
 				System.exit(1);
 			}
 			String retStr = (String) ackMsg.msgContent;
 			if (retStr == null) {
-				DebugLog.elog("ASSERT: server sents null content for ack");
+				DebugLog.elog("[NC][IRP] ASSERT: server sents null content for ack");
 				System.exit(1);
 			}
+			DebugLog.log("[NC][IRP] received the contiguous epoch list L=" + retStr);
 			contiguousEpochListL = retStr;
 		}
+		DebugLog.log("[*][IRP] exiting initialRecoveryProcedure()");
 	}
 	
 	protected static void uploadForwardingMutationSnapshot() {
@@ -529,17 +569,19 @@ public class RecoveryController {
 	}
 	
 	protected static void resetNewCloudEpochCount() {
-		
+		DebugLog.log("[CO][FRP] entering resetNewCloudEpochCount()");
 		try {
+			DebugLog.log("[CO][FRP] reseting EpochCount on cloud to be the latest epoch in L=" + latestEpochInL);
 			RockyStorage.cloudBlockSnapshotStore.put("EpochCount", ByteUtils.longToBytes(latestEpochInL));
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+		DebugLog.log("[CO][FRP] exiting resetNewCloudEpochCount()");
 	}
 	
 	protected static void resetPresenceBitmapNewCloudAndLocal() {
+		DebugLog.log("[CO][FRP] entering resetPresenceBitmapNewCloudAndLocal()");
 		RockyStorage.presenceBitmap.clear();
 		byte[] pBmBytes = RockyStorage.presenceBitmap.toByteArray();
 		try {
@@ -549,63 +591,86 @@ public class RecoveryController {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		DebugLog.log("[CO][FRP] exiting resetPresenceBitmapNewCloudAndLocal()");
 	}
 	
 	protected static void resetLocalEpochMetadataState() {
+		DebugLog.log("[CO][FRP] entering resetLocalEpochMetadataState()");
 		byte[] epochsOwnedBytes;
 		byte[] prefetchedEpochsBytes;
 		try {
 			// reset epochsOwned
 			epochsOwnedBytes = RockyStorage.localEpochBitmaps.get("epochsOwned");
+			if (epochsOwnedBytes == null) {
+				DebugLog.log("[CO][FRP] ASSERT: epochsOwned on local node is null");
+				System.exit(1);
+			}
 			String epochsOwnedString = new String(epochsOwnedBytes, Charsets.UTF_8);
+			DebugLog.log("[CO][FRP] This node ID=" + RockyController.nodeID + " has owned epochs=" + epochsOwnedString);
 			String[] epochsOwnedTokens = epochsOwnedString.split(";");
 			String resetEpochsOwnedStr = "";
 			for (int i = 0; i < epochsOwnedTokens.length; i++) {
 				int epochOwned = Integer.parseInt(epochsOwnedTokens[i]);
 				if (epochOwned > latestEpochInL) {
+					DebugLog.log("[CO][FRP] epochsOwned gets truncated not to exceed latestEpochInL=" + latestEpochInL + ". Break here.");
 					break;
 				} else {
 					resetEpochsOwnedStr += (epochOwned + ";");
 				}
 			}
+			DebugLog.log("[CO][FRP] This node ID=" + RockyController.nodeID + " has updated with owned epochs=" + resetEpochsOwnedStr);
 			RockyStorage.localEpochBitmaps.put("epochsOwned", resetEpochsOwnedStr.getBytes());
 			
 			// reset prefetchedEpochs
 			prefetchedEpochsBytes = RockyStorage.localBlockSnapshotStore.get("prefetchedEpochs");
+			if (prefetchedEpochsBytes == null) {
+				DebugLog.elog("[CO][FRP] ASSERT: prefetchedEpochsBytes is null");
+				System.exit(1);
+			}
 			String prefetchedEpochsString = new String(prefetchedEpochsBytes, Charsets.UTF_8);
+			DebugLog.log("[CO][FRP] prefetchedEpochs on this node=" + prefetchedEpochsString);
 			String[] prefetchedEpochsTokens = prefetchedEpochsString.split(";");
 			String resetPrefetchedEpochsStr = "";
 			long lastPrefetchedEpochLessThanLatestEpochInL = 0;
 			for (int i = 0; i < prefetchedEpochsTokens.length; i++) {
 				int prefEpoch = Integer.parseInt(prefetchedEpochsTokens[i]);
 				if (prefEpoch > latestEpochInL) {
+					DebugLog.log("[CO][FRP] prefetchedEpochs on this node gets truncated not to exceed latestEpochInL=" + latestEpochInL + ". Break here.");
 					break;
 				} else {
 					resetPrefetchedEpochsStr += (prefEpoch + ";");
 					lastPrefetchedEpochLessThanLatestEpochInL = prefEpoch;
 				}
 			}
+			DebugLog.log("[CO][FRP] This node ID=" + RockyController.nodeID + " has updated with prefetchedEpochs=" + resetPrefetchedEpochsStr);
+			DebugLog.log("[CO][FRP] The last prefetched epoch on this node is=" + lastPrefetchedEpochLessThanLatestEpochInL);
 			RockyStorage.localBlockSnapshotStore.put("prefetchedEpochs", resetPrefetchedEpochsStr.getBytes());
 			RockyStorage.cloudBlockSnapshotStore.put("PrefetchedEpoch-" + RockyController.nodeID, (lastPrefetchedEpochLessThanLatestEpochInL + "").getBytes());
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+		DebugLog.log("[CO][FRP] exiting resetLocalEpochMetadataState()");
 	}
 	
 	protected static void prefetchForDeadCloudRecovery() {
-		try {
-			RockyStorage.prefetcherThread.start();
-		} catch (IllegalThreadStateException itse) {
-			DebugLog.log("prefetcherThreadThread has stopped. Recreate to start again.");
+		DebugLog.log("[CO][FRP] entering prefetchForDeadCloudRecovery()");
+		if (!RockyStorage.prefetcherThread.isAlive()) {
+			DebugLog.log("[CO][FRP] prefetcherThreadThread has stopped. Recreate to start again.");
 			RockyStorage.prefetcherThread = new Thread(RockyStorage.prefetcher);
-		}	
+			RockyStorage.prefetcherThread.start();
+		}
+		DebugLog.log("[CO][FRP] iterating until finishing prefetch.");
 		while (true) {
 			try {
 				byte[] lastPrefetchedEpochBytes = RockyStorage.cloudBlockSnapshotStore.get("PrefetchedEpoch-" + RockyController.nodeID);
+				if (lastPrefetchedEpochBytes == null) {
+					DebugLog.elog("[CO][FRP] lastPrefetchedEpochBytes is null");
+					System.exit(1);
+				}
 				String lastPrefetchedEpochStr = new String(lastPrefetchedEpochBytes, Charsets.UTF_8);
 				long lastPrefetchedEpoch = Long.parseLong(lastPrefetchedEpochStr);
+				DebugLog.log("[CO][FRP] lastPrefetchedEpoch=" + lastPrefetchedEpoch + " latestOwnerEpoch=" + latestOwnerEpoch);
 				if (RockyStorage.debugPrintoutFlag) {
 					DebugLog.log("checking if prefetcher thread has done its job");
 				}
@@ -629,35 +694,41 @@ public class RecoveryController {
 				e.printStackTrace();
 			}
 		}
+		DebugLog.log("[CO][FRP] exiting prefetchForDeadCloudRecovery()");
 	}
 	
 	protected static void forwardRecoveryProcedure() {
+		DebugLog.log("[*][FRP] entering forwardRecoveryProcedure()");
 		
 		uploadForwardingMutationSnapshot();
 		
 		if (isCoordinator()) {
 			nonCoordinatorWaitingList.clear();
+			DebugLog.log("[CO][FRP] before calling waitsForNonCoordinators..");
 			waitsForNonCoordinators();
 			resetNewCloudEpochCount();
 			resetPresenceBitmapNewCloudAndLocal();
 			resetLocalEpochMetadataState();
+			DebugLog.log("[CO][IRP] received from all Non-Coordinators and finished my job. About to send response to Non-Coordinators..");
 			synchronized(canSendResponse) {
 				canSendResponse.notifyAll();
 			}
 		} else {
+			DebugLog.log("[NC][FRP] before calling sendPeerRequest..");
 			Message ackMsg = RockyStorage.pCom.sendPeerRequest(coordinatorID, PeerCommunication.PeerRequestType.CLOUD_FAILURE_RECOVERY_FRP_REQUEST);
 			if (ackMsg.msgType != MessageType.MSG_T_ACK) {
-				DebugLog.elog("ERROR: We haven't implemented retry for peer request for cloud failure recovery initialization procedure yet. It is error.");
+				DebugLog.elog("[NC][FRP] ERROR: We haven't implemented retry for peer request for cloud failure recovery initialization procedure yet. It is error.");
 				System.exit(1);
 			}
 			String retStr = (String) ackMsg.msgContent;
 			if (retStr == null) {
-				DebugLog.elog("ASSERT: server sents null content for ack");
+				DebugLog.elog("[NC][FRP] ASSERT: server sents null content for ack");
 				System.exit(1);
 			}
 		}
 		prefetchForDeadCloudRecovery();
 		
+		DebugLog.log("[*][FRP] exiting forwardRecoveryProcedure()");
 	}
 	
 	public static void runRecovery(String[] args) {
