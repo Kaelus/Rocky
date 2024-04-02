@@ -91,6 +91,10 @@ public class RecoveryController {
 		DebugLog.log("coordinatorID=" + coordinatorID);
 	}
 	
+	/**
+	 * Reset the EpochCount to be e_a - 1.
+	 * 
+	 */
 	protected static void recoverCloud() {
 		DebugLog.log("Inside rollbackCloudNode.");
 		try {
@@ -100,6 +104,29 @@ public class RecoveryController {
 		}
 	}
 	
+	/**
+	 * The version map is to keep track of the latest epoch known to this node.
+	 * The node may or may not have the latest copy. If it does not have the latest version
+	 * of the block snapshot, it needs to fetch the block snapshot of that version from the cloud.
+	 * That is when the version map is needed. By getting the latest epoch for the block ID,
+	 * this node can find out which block snapshot it specifically needs to fetch from the cloud. 
+	 * Therefore, after recovery process, this node needs to have the epoch for every block
+	 * that should not be newer than e_a - 1 where e_a is the epoch when the Ransomware attack
+	 * first began. 
+	 * 
+	 * While executing this method, the bit for the block for which version map is updated is
+	 * recorded in the variable localBlockResetBitmap. 
+	 * Also, this node records the latest epoch and block ID pair in the variable
+	 * localBlockResetEpochAndBlockIDPairStore to record the epoch and block ID for this node
+	 * to fetch again from the cloud.
+	 * Using localBlockResetBitmap and localBlockResetEpochAndBlockIDPairStore in the next method 
+	 * to be called in this recovery path (no cloud failure), actual block contents stored on 
+	 * this node is restored, properly---that is, the local block snapshots should be reverted to
+	 * those ones latest but no newer than the e_a - 1.
+	 * 
+	 * @param beginEpoch The first epoch the recovery goes back.
+	 * @param endEpoch The last epoch the recovery can fast forward.
+	 */
 	protected static void recoverVersionMap(long beginEpoch, long endEpoch) {
 		System.out.println("recoverVersionMap beginEpoch=" + beginEpoch + " endEpoch=" + endEpoch);
 		byte[] epochBitmap = null;
@@ -144,6 +171,18 @@ public class RecoveryController {
 		System.out.println("recoverVersionMap is done");
 	}
 		
+	/**
+	 * (See the comment of recoverVersionMap) As it is mentioned above, this method uses
+	 * two variables localBlockResetBitmap and localBlockResetEpochAndBlockIDPairStore.
+	 * Those two variables contain meta-data required to revert local block snapshots 
+	 * to those ones not newer than e_a - 1.
+	 * With these two pieces of information, this method read the block snapshot of
+	 * the correct epoch and overwrite the local block snapshot stores to revert
+	 * back to the correct block snapshots which are free from the Ransomware attack.
+	 * 
+	 * @param beginEpoch The first epoch the recovery goes back.
+	 * @param endEpoch The last epoch the recovery can fast forward.
+	 */
 	protected static void recoverRockyStorage(long beginEpoch, long endEpoch) {
 		// fetch required blocks from CBSS and store it into the rocky storage (i.e. FDBArray).
 		System.out.println("resetRockyStorage entered");

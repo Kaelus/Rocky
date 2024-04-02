@@ -21,7 +21,7 @@ echo
 echo "checking if ${volume_name} exists.."
 java -jar $rocky_home/nbdfdb/nbdcli.jar list | grep $volume_name
 if [ $? -gt 0 ]; then
-    echo "ASSERT: The volume name testinglocal${i} does not exist yet."
+    echo "ASSERT: The volume name $volume_name does not exist yet."
     echo "Create the volume first by using fdb_create_volume.sh"
     exit 1
 fi

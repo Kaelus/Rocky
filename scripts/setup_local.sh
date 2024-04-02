@@ -23,8 +23,9 @@ echo "modifying scripts properly.."
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/dynamodb_local_start.sh
 sed -i -e "4s|.*|working_dir=$working_dir|" $script_dir_dst/dynamodb_local_start.sh
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/fdb_create_volume.sh
-sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/rocky_start.sh
+sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/fdb_list_volume.sh
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/fdb_delete_volume.sh
+sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/rocky_start.sh
 sed -i -e "3s|.*|working_dir=$working_dir|" $script_dir_dst/clean_local.sh
 sed -i -e "10s|.*|rocky_home=$rocky_home|" $script_dir_dst/run_local.sh
 sed -i -e "3s|.*|working_dir=$working_dir|" $script_dir_dst/stop_local.sh
@@ -48,6 +49,7 @@ while [ $i -lt $num_node ]; do
     sed -i -e "14s|.*|nbdPort=$nbd_port|" $conf_dir/$i/rocky_local.cfg
     
     sed -i -e "2s|.*|lcvdName=testinglocal${i}|" $conf_dir/$i/rocky_local.cfg
+    sed -i -e "2s|.*|lcvdName=testinglocal${i}|" $conf_dir/$i/recover_local.cfg
     sed -i -e "7s|.*|workingDir=${working_dir}|" $conf_dir/$i/rocky_local.cfg
 
     echo "calculating peerAddress for local testing.."

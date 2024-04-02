@@ -8,4 +8,4 @@ fi
 echo "starting recover_local.sh"
 
 ./dynamodb_local_start.sh &
-java -jar /home/ben/project/rocky/Rocky/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController ../conf/0/recovery_local.cfg
+java -jar /home/ben/project/rocky/Rocky/build/libs/Rocky-all-1.0.jar rocky.ctrl.RockyController $1
