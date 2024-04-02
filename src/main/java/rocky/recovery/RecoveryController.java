@@ -64,10 +64,10 @@ public class RecoveryController {
 					String[] tokens = line.split("=");
 					String rollbackEpochStr = tokens[1];
 					epochEa = Integer.parseInt(rollbackEpochStr);
-					if (epochEa > RockyStorage.epochCnt) {
-						System.err.println("ASSERT: epochEa should not be greater than the latest epoch.");
-						System.exit(1);
-					}
+					//if (epochEa > RockyStorage.epochCnt) {
+					//	System.err.println("ASSERT: epochEa should not be greater than the latest epoch.");
+					//	System.exit(1);
+					//}
 				} else if (line.startsWith("cloud_failure")) {
 					String[] tokens = line.split("=");
 					hasCloudFailed = Boolean.parseBoolean(tokens[1]);

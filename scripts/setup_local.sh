@@ -44,6 +44,7 @@ while [ $i -lt $num_node ]; do
     client_ip=`expr 127.0.0.1`
     client_port=`expr 12300 + $i`
     sed -i -e "1s|.*|ip=$client_ip:$client_port|" $conf_dir/$i/rocky_local.cfg
+    sed -i -e "1s|.*|ip=$client_ip:$client_port|" $conf_dir/$i/recover_local.cfg
 
     nbd_port=`expr 10810 + $i`
     sed -i -e "14s|.*|nbdPort=$nbd_port|" $conf_dir/$i/rocky_local.cfg
