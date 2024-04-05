@@ -294,6 +294,7 @@ public class RecoveryController {
 			synchronized(canSendResponse) {
 				canSendResponse.notifyAll();
 			}
+			DebugLog.log("[CO][PR] Server sent: hasCloudFailed=" + hasCloudFailed + " and epochEa=" + epochEa);
 		} else {
 			DebugLog.log("[NC][PR] before calling sendPeerRequest..");
 			Message ackMsg = RockyStorage.pCom.sendPeerRequest(coordinatorID, PeerCommunication.PeerRequestType.CLOUD_FAILURE_RECOVERY_PREP_REQUEST);
@@ -308,7 +309,7 @@ public class RecoveryController {
 			}
 			hasCloudFailed = Boolean.parseBoolean(retStr.split(";")[0]);
 			epochEa = Long.parseLong(retStr.split(";")[1]);
-			DebugLog.log("[NC][PR] Server sent: hasCloudFailed=" + hasCloudFailed + " and epochEa=" + epochEa);
+			DebugLog.log("[NC][PR] Received from Server: hasCloudFailed=" + hasCloudFailed + " and epochEa=" + epochEa);
 		}
 		DebugLog.log("[*][PR] exiting prepareRecoveryDeadCloud()");
 	}
