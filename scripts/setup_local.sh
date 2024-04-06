@@ -84,6 +84,8 @@ while [ $i -lt $num_node ]; do
     echo "peerAddress=${peer_address}"
     sed -i -e "13s|.*|peerAddress=${peer_address}|" $conf_dir/$i/rocky_local.cfg
     echo "updating rocky_local.cfg at=$conf_dir/$i/rocky_local.cfg"
+    sed -i -e "13s|.*|peerAddress=${peer_address}|" $conf_dir/$i/recover_local.cfg
+    echo "updating recover_local.cfg at=$conf_dir/$i/recover_local.cfg"
     
     echo "check if volume (i.e. lcvdName) exists.."
     java -jar $rocky_home/nbdfdb/nbdcli.jar list | grep testinglocal${i}

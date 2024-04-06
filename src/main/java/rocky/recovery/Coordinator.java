@@ -488,7 +488,7 @@ public class Coordinator {
 					String[] tokens = line.split("=");
 					String rollbackEpochStr = tokens[1];
 					epochEa = Integer.parseInt(rollbackEpochStr);
-				} else if (line.startsWith("cloud_failure")) {
+				} else if (line.startsWith("hasCloudFailed")) {
 					String[] tokens = line.split("=");
 					hasCloudFailed = Boolean.parseBoolean(tokens[1]);
 				} else if (line.startsWith("backendStorageType")) {

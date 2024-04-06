@@ -906,11 +906,12 @@ public class RockyStorage extends FDBStorage {
 									// locally record epochs for which prefetch is completed
 									try {
 										byte[] pePrefixBytes = localBlockSnapshotStore.get("prefetchedEpochs");
-										String pePrefixString = "";
-										if (pePrefixBytes != null) {
-											pePrefixString = new String(pePrefixBytes, Charsets.UTF_8);
+										if (pePrefixBytes == null) {
+											localBlockSnapshotStore.put("prefetchedEpochs", ("" + prefetchedEpoch).getBytes());	
+										} else {
+											String pePrefixString = new String(pePrefixBytes, Charsets.UTF_8);
+											localBlockSnapshotStore.put("prefetchedEpochs", ((String)pePrefixString + ";" + prefetchedEpoch).getBytes());
 										}
-										localBlockSnapshotStore.put("prefetchedEpochs", ((String)pePrefixString + ";" + prefetchedEpoch).getBytes());
 									} catch (IOException e) {
 										// TODO Auto-generated catch block
 										e.printStackTrace();
@@ -1200,11 +1201,12 @@ public class RockyStorage extends FDBStorage {
 					cloudEpochBitmaps.put(Long.toString(curEpoch) + "-owner", RockyController.nodeID.getBytes());
 					// record epochs the node was the onwer for
 					byte[] eoPrefixBytes = localEpochBitmaps.get("epochsOwned");
-					String eoPrefixString = "";
-					if (eoPrefixBytes != null) {
-						eoPrefixString = new String(eoPrefixBytes, Charsets.UTF_8);
+					if (eoPrefixBytes == null) {
+						localEpochBitmaps.put("epochsOwned", ("" + curEpoch).getBytes());
+					} else {
+						String eoPrefixString = new String(eoPrefixBytes, Charsets.UTF_8);
+						localEpochBitmaps.put("epochsOwned", ((String) eoPrefixString + ";" + curEpoch).getBytes());
 					}
-					localEpochBitmaps.put("epochsOwned", ((String) eoPrefixString + ";" + curEpoch).getBytes());
 					// also record dirty bitmap (epoch bitmap on cloud) on this node too
 					localEpochBitmaps.put(Long.toString(curEpoch) + "-bitmap", dmBytes);
 					epochCnt++;

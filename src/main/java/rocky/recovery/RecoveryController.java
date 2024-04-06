@@ -68,7 +68,7 @@ public class RecoveryController {
 					//	System.err.println("ASSERT: epochEa should not be greater than the latest epoch.");
 					//	System.exit(1);
 					//}
-				} else if (line.startsWith("cloud_failure")) {
+				} else if (line.startsWith("hasCloudFailed")) {
 					String[] tokens = line.split("=");
 					hasCloudFailed = Boolean.parseBoolean(tokens[1]);
 				} else if (line.startsWith("coordinator")) {
@@ -284,6 +284,14 @@ public class RecoveryController {
 		DebugLog.log("[CO][*] exiting waitsForNonCoordinators()");
 	}
 	
+	/**
+	 * prepareRecoveryDeadCloud logic. 
+	 * 
+	 * It is to synchronize all participating nodes on the flag indicating whether
+	 * the cloud has failed (hasCloudFailed) and the epoch in which tampering attacks
+	 * began (epochEa). 
+	 * 
+	 */
 	protected static void prepareRecoveryDeadCloud() {
 		DebugLog.log("[*][PR] entered prepareRecoveryDeadCloud()");
 		if (isCoordinator()) {
@@ -314,8 +322,83 @@ public class RecoveryController {
 		DebugLog.log("[*][PR] exiting prepareRecoveryDeadCloud()");
 	}
 	
+	/**
+	 * Initialization Procedure logic.
+	 * 
+	 * Firstly, each node including both the coordinator and non-coordinator
+	 * votes for themselves. 
+	 * So, initially each node set
+	 * latestOwnerEpoch, epochLeader, latestPrefetchEpoch, prefetchLeader 
+	 * to be their own 
+	 * latestEpochOwned, nodeID, latestPrefetchedEpoch, nodeID, 
+	 * respectively.
+	 * 
+	 * Secondly, all non-coordinator nodes send their own votes to the coordinator.
+	 * Once the coordinator receives all non-coordinator node's votes, it can finally
+	 * decide which node is going to be the epochLeader and the prefetchLeader.
+	 * The coordinator node updates its own variables. Then, it sends out 
+	 * those information along with latestOwnerEpoch and latestPrefetchEpoch.
+	 * Then, non-coordinator nodes receives and updatest their variables, accordingly.
+	 * 
+	 */
 	protected static void initializationProcedure() {
 		DebugLog.log("[*][IP] entered initializationProcedure()");
+		
+		try {
+			byte[] eoBytes = RockyStorage.localEpochBitmaps.get("epochsOwned");
+			String eoString = null;
+			if (eoBytes == null) {
+				eoString = 0L + ";";
+			} else {
+				eoString = new String(eoBytes, Charsets.UTF_8); 
+			}
+			DebugLog.log("epochsOwned=" + eoString);
+			byte[] peBytes = RockyStorage.localBlockSnapshotStore.get("prefetchedEpochs");
+			String peString = null;
+			if (peBytes == null) {
+				peString = 0L + ";";
+			} else {
+				peString = new String(peBytes, Charsets.UTF_8);
+			}
+			DebugLog.log("prefetchedEpochs=" + peString);
+			String[] eoTokens = eoString.split(";");
+			String[] peTokens = peString.split(";");
+			long eoLong = 0;
+			long latestEpochOwned = 0;
+			for (String t1 : eoTokens) {
+				eoLong = Long.parseLong(t1);
+				if (eoLong >= epochEa) {
+					break;
+				} else {
+					if (eoLong > latestEpochOwned) {
+						latestEpochOwned = eoLong;
+					}
+				}
+			}
+			latestOwnerEpoch = latestEpochOwned;
+			epochLeader = RockyController.nodeID;
+			long peLong = 0;
+			long latestPrefetchedEpoch = 0;
+			for (String t2 : peTokens) {
+				peLong = Long.parseLong(t2);
+				if (peLong >= epochEa) {
+					break;
+				} else {
+					if (peLong > latestPrefetchedEpoch) {
+						latestPrefetchedEpoch = peLong;
+					}
+				}
+			}
+			latestPrefetchEpoch = latestPrefetchedEpoch;
+			prefetchLeader = RockyController.nodeID;
+			
+			DebugLog.log("[*][IP] initial (my own vote) latestOwnerEpoch=" + latestOwnerEpoch + " epochLeader=" + epochLeader 
+					+ " latestPrefetchEpoch=" + latestPrefetchEpoch + " prefetchLeader=" + prefetchLeader);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
 		if (isCoordinator()) {
 			nonCoordinatorWaitingList.clear();
 			DebugLog.log("[CO][IP] before calling waitsForNonCoordinators..");
@@ -324,62 +407,27 @@ public class RecoveryController {
 			synchronized(canSendResponse) {
 				canSendResponse.notifyAll();
 			}
+			DebugLog.log("[CO][IP] sending latestOwnerEpoch=" + latestOwnerEpoch + " epochLeader=" + epochLeader 
+					+ " latestPrefetchEpoch=" + latestPrefetchEpoch + " prefetchLeader=" + prefetchLeader);
 		} else {
-			try {
-				byte[] eoBytes = RockyStorage.localEpochBitmaps.get("epochsOwned");
-				String eoString = new String(eoBytes, Charsets.UTF_8);
-				DebugLog.log("epochsOwned=" + eoString);
-				byte[] peBytes = RockyStorage.localBlockSnapshotStore.get("prefetchedEpochs");
-				String peString = new String(peBytes, Charsets.UTF_8);
-				DebugLog.log("prefetchedEpochs=" + peString);
-				String[] eoTokens = eoString.split(";");
-				String[] peTokens = peString.split(";");
-				long eoLong = 0;
-				long latestEpochOwned = 0;
-				for (String t1 : eoTokens) {
-					eoLong = Long.parseLong(t1);
-					if (eoLong >= epochEa) {
-						break;
-					} else {
-						if (eoLong > latestEpochOwned) {
-							latestEpochOwned = eoLong;
-						}
-					}
-				}
-				long peLong = 0;
-				long latestPrefetchedEpoch = 0;
-				for (String t2 : peTokens) {
-					peLong = Long.parseLong(t2);
-					if (peLong >= epochEa) {
-						break;
-					} else {
-						if (peLong > latestPrefetchedEpoch) {
-							latestPrefetchedEpoch = peLong;
-						}
-					}
-				}
-				DebugLog.log("[NC][IP] before calling sendPeerRequest..");
-				Message ackMsg = RockyStorage.pCom.sendPeerRequest(coordinatorID, PeerCommunication.PeerRequestType.CLOUD_FAILURE_RECOVERY_IP_REQUEST);
-				if (ackMsg.msgType != MessageType.MSG_T_ACK) {
-					DebugLog.elog("ERROR: We haven't implemented retry for peer request for cloud failure recovery initialization procedure yet. It is error.");
-					System.exit(1);
-				}
-				String retStr = (String) ackMsg.msgContent;
-				if (retStr == null) {
-					DebugLog.elog("ASSERT: server sents null content for ack");
-					System.exit(1);
-				}
-				String[] retStrTokens = retStr.split(";");
-				latestOwnerEpoch = Long.parseLong(retStrTokens[0]);
-				epochLeader = retStrTokens[1];
-				latestPrefetchEpoch = Long.parseLong(retStrTokens[2]);
-				prefetchLeader = retStrTokens[3];
-				DebugLog.log("[NC][IP] received latestOwnerEpoch=" + latestOwnerEpoch + " epochLeader=" + epochLeader 
-						+ " latestPrefetchEpoch=" + latestPrefetchEpoch + " prefetchLeader=" + prefetchLeader);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			DebugLog.log("[NC][IP] before calling sendPeerRequest..");
+			Message ackMsg = RockyStorage.pCom.sendPeerRequest(coordinatorID, PeerCommunication.PeerRequestType.CLOUD_FAILURE_RECOVERY_IP_REQUEST);
+			if (ackMsg.msgType != MessageType.MSG_T_ACK) {
+				DebugLog.elog("ERROR: We haven't implemented retry for peer request for cloud failure recovery initialization procedure yet. It is error.");
+				System.exit(1);
 			}
+			String retStr = (String) ackMsg.msgContent;
+			if (retStr == null) {
+				DebugLog.elog("ASSERT: server sents null content for ack");
+				System.exit(1);
+			}
+			String[] retStrTokens = retStr.split(";");
+			latestOwnerEpoch = Long.parseLong(retStrTokens[0]);
+			epochLeader = retStrTokens[1];
+			latestPrefetchEpoch = Long.parseLong(retStrTokens[2]);
+			prefetchLeader = retStrTokens[3];
+			DebugLog.log("[NC][IP] received latestOwnerEpoch=" + latestOwnerEpoch + " epochLeader=" + epochLeader 
+					+ " latestPrefetchEpoch=" + latestPrefetchEpoch + " prefetchLeader=" + prefetchLeader);
 		}
 		DebugLog.log("[*][IP] exiting initializationProcedure()");
 	}
@@ -784,6 +832,17 @@ public class RecoveryController {
 			parseRecoveryConfig(args[1]);
 		}
 		printStaticVariables();
+		
+		// additional initialization for dead cloud situation
+		if (hasCloudFailed) {
+			nonCoordinatorWaitingList = new ArrayList<String>();
+			canSendResponse = false;
+			latestOwnerEpoch = 0;
+			latestPrefetchEpoch = 0;
+			epochLeader = null;
+			prefetchLeader = null;
+		}
+		System.out.println("Additional initialization of variables is done.");
 		
 		if (!hasCloudFailed) { // if cloud is alive
 			if (RockyController.nodeID.equals(RecoveryController.coordinatorID)) {
