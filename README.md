@@ -23,7 +23,7 @@ Tested with the following versions of software:
 # Prerequisites
 
 Replace \<RockyHome\> below with the directory path where you cloned the Rocky git repo.
-NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git repo cloned should be at /home/<USERNAME>/project/Rocky (Replace <USERNAME> properly).
+NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git repo cloned should be at /home/\<USERNAME\>/project/Rocky (Replace \<USERNAME\> properly).
 
 1. FoundationDB needs to be installed.
    - Reference: https://apple.github.io/foundationdb/getting-started-linux.html
