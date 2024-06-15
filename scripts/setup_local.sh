@@ -26,6 +26,7 @@ sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/fdb_create_volume.sh
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/fdb_list_volume.sh
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/fdb_delete_volume.sh
 sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/rocky_start.sh
+sed -i -e "3s|.*|rocky_home=$rocky_home|" $script_dir_dst/recover_local.sh
 sed -i -e "3s|.*|working_dir=$working_dir|" $script_dir_dst/clean_local.sh
 sed -i -e "10s|.*|rocky_home=$rocky_home|" $script_dir_dst/run_local.sh
 sed -i -e "3s|.*|working_dir=$working_dir|" $script_dir_dst/stop_local.sh
