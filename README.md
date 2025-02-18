@@ -36,13 +36,15 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
    - `sudo apt-get install nbd-server nbd-client`
      - Choose default value, 'yes,' for disconnecting all nbd-client devices.
 
-3. Install aws:
+3. Set up for AWS DynamoDB:
+   - The jar file "DynamoDBLocal.jar" needed can be found in \<RockyHome\>/dynamoDB
    - Reference: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html
    - `sudo apt install awscli`
    - `aws configure`
-     - AWS Access Key ID: "fakeMyKeyId"
-       AWS Secret Access Key: "fakeSecretAccessKey"
-       Default Region Name: "fakeRegion"
+     - AWS Access Key ID: fakeMyKeyId
+       AWS Secret Access Key: fakeSecretAccessKey
+       Default Region Name: fakeRegion
+       Default output format: fakeOutputFormat
 
 # How to build
 
