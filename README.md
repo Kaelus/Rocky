@@ -2,7 +2,7 @@
 
 ## Authors
 
-Beom Heyn Kim \<beomheyn.kim@gmail.com\> at Cloud System Lab, Hanyang University ERICA
+Beom Heyn (Ben) Kim \<beomheynkim@hanyang.ac.kr\> at Critical System Lab, Hanyang University ERICA
 
 # Overview
 
