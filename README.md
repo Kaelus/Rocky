@@ -53,17 +53,21 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
 # How to prepare to run
 
 1. Create a volume for foundationDB to use locally.
-   - To create the volume name 'testinglocal0' whose size is 10MB
+   - To create the volume name "testinglocal0" whose size is 10MB
      - `./fdb_create_volume.sh testinglocal0 10MB`
+   - If you want to list up existing volumes:
+     - `./fdb_list_volume.sh`
+   - If you want to delete a specific existing volume (e.g., testinglocal0):
+     - `./fdb_delete_volume.sh testinglocal0`
 
 2. Deploy necessary artifact to a working directory.
-   - There is a script setup_local.sh in \<RockyHome\>, which deploys necessary components into a working directory.
+   - There is a script "setup_local.sh" in \<RockyHome\>/scripts, which deploys necessary components into a working directory.
      - To deploy to the working directory ~/working_dir/rocky/local/:
        - `./setup_local.sh 1 ~/working_dir/rocky/local`
 
 3. [Optional] Configure Rocky
-   - In your working directory, there are two configuration files in conf directory: rocky_local.conf and recovery_local.conf
-   - Meaning of each configuration parameter is as follows:
+   - Under the 'conf' directory of your working directory (e.g., ~/working_dir/rocky/local/conf), there are folders whose names are their node ID (e.g., 0). Under those folders, there are two configuration files: rocky_local.cfg and recover_local.cfg
+   - Meaning of each configuration parameter in those files is as follows:
      - ip: Should have the value of the format "\<IP address\>:\<Port number\>" and it is going to be used as the ID for the Rocky endpoint. 
      - lcvdName: The backend volume name
      - rockyMode: It can be either origin, rocky or recovery. Use rocky mode to run a VM atop. Use recovery to recover the tampered rocky node. Origin is used for the evaluation purpose.
@@ -78,9 +82,9 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
 
 # How to run Rocky
 
-1. Use the script run_local.sh
-   - To run Rocky node with the volume name "testinglocal" of the size 10MB with the nbd device name "nbd0" by using the configuration file "rocky_local.conf" in the conf directory:
-     - ./run_local.sh ../conf/0/rocky_local.conf
+1. Use the script run_local.sh in "scripts" under the your working directory
+   - For example, to run Rocky node with the volume name "testinglocal" of the size 10MB with the nbd device name "nbd0" by using the configuration file "rocky_local.cfg" in the conf directory:
+     - ./run_local.sh ../conf/0/rocky_local.cfg
 
 2. Switching roles of the Rocky Controller
    - Once you started the Rocky Controller successfully, you will get a list of commands for you to control the Rocky Controller via ControlUserInterface.
@@ -97,14 +101,17 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
    - `ls /tmp`
    - Should be able to see the directory lost+found
    - Create or copy some files into /tmp
-     - `sudo touch /tmp/hello`
-     - `echo 'Hello, World!' | sudo tee /tmp/hello`
-   - Type 9 in the terminal where you are running the Rocky node to enable verbose mode. (You can type 9 anytime to disable it)
-   - Type 5 in the terminal where you are running the Rocky node to forcefully flush changes made so far to the replication broker.
-     - This makes the benign writes to be flushed during the epoch 1.
-   - At last, corrupt the files. (e.g. simply write some threatening messages like "Pay me if you want your data!!!!" in one of text file you created or copied into the /tmp)
-     - `echo 'Pay me if you want your data!!!!' | sudo tee /tmp/hello`
-   - Now, flush to the replication broker once more by typing 5. Also, remember the epoch number printed on the console (it should be 2)
+     - For example,
+       - `sudo touch /tmp/hello`
+       - `echo 'Hello, World!' | sudo tee /tmp/hello`
+   - If you need more informative messages to be printed out, type '9' in the terminal where you are running the Rocky node to enable verbose mode.
+     - You can type '9' once more anytime to turn it off again.)
+   - Type '5' in the terminal where you are running the Rocky node to forcefully flush changes made so far to the replication broker.
+     - This makes the benign writes to be flushed during the last epoch (currently, the last epoch should be epoch 1).
+   - At last, corrupt files.
+     -For instance, as follows, simply write some threatening messages like "Pay me if you want your data!!!!" in one of text file you created or copied into the /tmp
+       - `echo 'Pay me if you want your data!!!!' | sudo tee /tmp/hello`
+   - Now, flush to the replication broker once more by typing '5'. Also, remember the epoch number printed on the console (If you have been faithfully following this instruction, it should be epoch number 2 that is printed out.)
      - By doing this flushing, the tampering writes are flushed during the epoch 2. So, the epoch 2 is going to be the e_a which you want to rollback.
    - `sudo umount /tmp`
 
@@ -115,16 +122,18 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
 
 6. To recover the corrupted Rocky:
    - Use the script recover_local.sh:
-     - `./recover_local.sh ../conf/0/recover_local.conf`
+     - `./recover_local.sh ../conf/0/recover_local.cfg`
    - Stop 
      - `./stop_local.sh`
 
 7. Confirm the recovery is made correctly:
-   - Run the rocky node again in the same way as described in Step 1 and 2.
+   - Run the rocky node again in the same way as described in Step 1 and 2 above.
    - `sudo mount /dev/nbd0 /tmp`
    - Then, check the contents of the corrupted files are restored correctly. e.g., you may cat the text file and see if its contents is same as it was tampered by threatening messages.
 
 8. To clean and start over again:
+   - Unmount the nbd0:
+     - `sudo umount /tmp`
    - Quit the Rocky node by typing -1 or ctrl-x
    - In the working directory's script directory:
      - `./stop_local.sh`
