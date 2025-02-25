@@ -61,8 +61,8 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
      - `./fdb_delete_volume.sh testinglocal0`
 
 2. Deploy necessary artifact to a working directory.
-   - There is a script "setup_local.sh" in \<RockyHome\>/scripts, which deploys necessary components into a working directory.
-     - To deploy to the working directory ~/working_dir/rocky/local/:
+   - There is a script "setup_local.sh" in "\<RockyHome\>/scripts", which deploys necessary components into a working directory.
+     - To deploy to the working directory "~/working_dir/rocky/local/":
        - `./setup_local.sh 1 ~/working_dir/rocky/local`
 
 3. [Optional] Configure Rocky
@@ -80,11 +80,11 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
      - e_a: The first epoch number for which the tampering writes are issued. This should be set for recovery. Adjust this accordingly.
      - hasCloudFailed: This tells if the cloud is alive or failed. This should be set for recovery.
 
-# How to run Rocky
+# How to run Rocky (only one instance)
 
 1. Use the script run_local.sh in "scripts" under the your working directory
-   - For example, to run Rocky node with the volume name "testinglocal" of the size 10MB with the nbd device name "nbd0" by using the configuration file "rocky_local.cfg" in the conf directory:
-     - ./run_local.sh ../conf/0/rocky_local.cfg
+   - For example, to run Rocky node with the volume name "testinglocal0" of the size 10MB with the nbd device name "nbd0" by using the configuration file "rocky_local.cfg" in the "conf" directory under the working directory:
+     - `./run_local.sh ../conf/0/rocky_local.cfg`
 
 2. Switching roles of the Rocky Controller
    - Once you started the Rocky Controller successfully, you will get a list of commands for you to control the Rocky Controller via ControlUserInterface.
@@ -105,7 +105,7 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
        - `sudo touch /tmp/hello`
        - `echo 'Hello, World!' | sudo tee /tmp/hello`
    - If you need more informative messages to be printed out, type '9' in the terminal where you are running the Rocky node to enable verbose mode.
-     - You can type '9' once more anytime to turn it off again.)
+     - You can type '9' once more anytime to turn it off again.
    - Type '5' in the terminal where you are running the Rocky node to forcefully flush changes made so far to the replication broker.
      - This makes the benign writes to be flushed during the last epoch (currently, the last epoch should be epoch 1).
    - At last, corrupt files.
@@ -139,3 +139,70 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
      - `./stop_local.sh`
      - `./clean_local.sh`
    - Then, go 'How to Prepare to Run' step 1.
+
+# How to prepare to run multiple instances (on the same localhost)
+
+1. Assuming "How to prepare to run" and "How to run Rocky (only one instance)" are already done, prepare volumes to use. Basically, we need volumes as many as the number of instances we want to run.
+   - Check if all volumes to use exist:
+     - `./fdb_list_volume.sh`
+   - If not all volumes to use exist already, create as many volumes as needed (e.g., to run 2 instances and none of volumes to use for them exist, create the volume name "testinglocal0" and "testinglocal1 whose sizes are 10MB)
+     - `./fdb_create_volume.sh testinglocal0 10MB`
+     - `./fdb_create_volume.sh testinglocal1 10MB`
+
+2. Run a script to set up the working directory for instances as many as you want to run.
+   - For instance, to deploy 2 instances on the same localhost where the working directory is "~/working_dir/rocky/local/":
+     - `./setup_local.sh 2 ~/working_dir/rocky/local`
+   - Confirm that there are subdirectories for each instance under conf, data, and log directories in "~/working_dir/rocky/local". The subdirectories are named after the node ID associated with each instance.
+
+3. [Optional] Configure Rocky
+   - Refer to the step 3 of "How to prepare to run" above
+   
+# How to run Rocky (multiple instances on the same localhost)
+
+1. Use the script run_local.sh in "scripts" under the your working directory
+   - Run each instance by providing proper path to the configuration file to use.
+     - For example, to run Rocky instance for the node ID 0 and 1, do the followings:
+       - Open a terminal for node 0:
+       	 - `./run_local.sh ../conf/0/rocky_local.cfg`
+       - Open another terminal for node 1:
+       	 - `./run_local.sh ../conf/1/rocky_local.cfg`
+
+2. Switching roles of the Rocky Controllers
+   - Once you started the Rocky Controllers successfully, you will get a list of commands for you to control the Rocky Controllers via ControlUserInterface.
+   - Make the instance to be used by an application become "Owner", while other instances should become "NonOwner" (e.g. node 0 becomes "Owner", while node 1 becomes "NonOwner")
+     - For node 0: 
+       - type '2' and enter. It will show the current role.
+       - If 'None' then type '2' to switch to 'NonOwner'
+       - If 'NonOwner' then type '3' to switch to 'Owner'
+     - For node 1:
+       - type '2' and enter. It will show the current role.
+       - If 'None' then type '2' to switch to 'NonOwner'
+       - Stop here.
+
+3. Open a new terminal to run workloads and do the followings to see writes generated on the node 0 can be seen by the node 1:
+   - Create subdirectories as mount points for node 0 and node 1 under /tmp.
+     - `mkdir /tmp/mp0`
+     - `mkdir /tmp/mp1`
+   - For node 0:
+     - `sudo mkfs.ext4 /dev/nbd0`
+       - if the above does not work, try:
+       	 - `sudo mkfs.ext2 /dev/nbd0`
+     - `sudo mount /dev/nbd0 /tmp/mp0`
+     - `ls /tmp/mp0`
+       - Should be able to see the directory lost+found
+     - Create or copy some files into "/tmp/mp0"
+       - For example,
+         - `sudo touch /tmp/mp0/hello`
+         - `echo 'Hello, World!' | sudo tee /tmp/mp0/hello`
+       - Feel free to create some more if you want.
+     - Recall if you need more informative messages to be printed out, type '9' in the terminal where you are running the Rocky node to enable verbose mode.
+       - You can type '9' once more anytime to turn it off again.
+     - Type '5' in the terminal where you are running the Rocky node to forcefully flush changes made so far to the replication broker.
+       - This makes the benign writes to be flushed during the last epoch (currently, the last epoch should be epoch 1).
+   - For node 1: 
+     - Go to the node 1's terminal and make node 1 prefetch all recent changes by typing '6' (recall, you can type '9' to toggle the verbose mode)
+     - After prefetch completes, go back to the original terminal and mount "nbd1" to "/tmp/mp1" as read-only and also do not load the journal on mounting.
+       - `sudo mount -o ro,noload /dev/nbd1 /tmp/mp1`
+     - Then, check if the content written on nbd0 is visible from nbd1.
+       - `cat /tmp/mp1/hello`
+     - `sudo umount /tmp/mp1`
