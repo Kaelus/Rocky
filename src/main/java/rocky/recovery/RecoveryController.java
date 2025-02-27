@@ -110,19 +110,21 @@ public class RecoveryController {
 	 * of the block snapshot, it needs to fetch the block snapshot of that version from the cloud.
 	 * That is when the version map is needed. By getting the latest epoch for the block ID,
 	 * this node can find out which block snapshot it specifically needs to fetch from the cloud. 
-	 * Therefore, after recovery process, this node needs to have the epoch for every block
-	 * that should not be newer than e_a - 1 where e_a is the epoch when the Ransomware attack
-	 * first began. 
+	 * Therefore, after recovery process, this node needs to have the latest block snapshots not 
+	 * newer than e_a - 1 where e_a is the epoch when the tampering attack first began. 
 	 * 
-	 * While executing this method, the bit for the block for which version map is updated is
-	 * recorded in the variable localBlockResetBitmap. 
+	 * While executing this method, the bit of the variable localBlockResetBitmap is set to be
+	 * recorded for the block version map is updated for. 
 	 * Also, this node records the latest epoch and block ID pair in the variable
-	 * localBlockResetEpochAndBlockIDPairStore to record the epoch and block ID for this node
-	 * to fetch again from the cloud.
-	 * Using localBlockResetBitmap and localBlockResetEpochAndBlockIDPairStore in the next method 
-	 * to be called in this recovery path (no cloud failure), actual block contents stored on 
-	 * this node is restored, properly---that is, the local block snapshots should be reverted to
-	 * those ones latest but no newer than the e_a - 1.
+	 * localBlockResetEpochAndBlockIDPairStore so that the node can fetch the proper version of 
+	 * block snapshots from the cloud.
+	 * 
+	 * By referring to localBlockResetBitmap and localBlockResetEpochAndBlockIDPairStore 
+	 * actual block device state on this node is properly restored without being tampered.
+	 * That is, the local block snapshots should be reverted to those ones that are latest but 
+	 * not newer than the e_a - 1.  
+	 * This part of the logic is actually implemented in recoverRockyStorage(long, long), the next 
+	 * method to be called in this recovery path in which no cloud failure is assumed. 
 	 * 
 	 * @param beginEpoch The first epoch the recovery goes back.
 	 * @param endEpoch The last epoch the recovery can fast forward.
