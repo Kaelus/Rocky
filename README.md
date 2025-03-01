@@ -48,7 +48,11 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
 
 # How to build
 
-`gradle clean fatJar`
+1. Build to generate gRPC stuffs first.
+   - `./gradlew clean generateProto`
+
+2. Build to generate fatJar to produce the executable Jar including every dependencies needed.
+   - `./gradlew clean fatJar`
 
 # How to prepare to run
 
