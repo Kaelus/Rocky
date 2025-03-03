@@ -93,8 +93,8 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
 2. Switching roles of the Rocky Controller
    - Once you started the Rocky Controller successfully, you will get a list of commands for you to control the Rocky Controller via ControlUserInterface.
    - type '2' and enter. It will show the current role.
-   - If 'None' then type '2' to switch to 'NonOwner'
-   - If 'NonOwner' then type '3' to switch to 'Owner'
+   - If 'None' then type '1' to switch to 'NonOwner'
+   - If 'NonOwner' then type '0' to switch to 'Owner'
    - Make sure the role of RockyController to be Owner before generating any I/O
 
 3. Run the following workloads in another terminal to generate some disk I/O to the nbd0 to test (You may run a VM, ransomware in it, for a more comprehensive test):
@@ -176,11 +176,11 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
    - Make the instance to be used by an application become "Owner", while other instances should become "NonOwner" (e.g. node 0 becomes "Owner", while node 1 becomes "NonOwner")
      - For node 0: 
        - type '2' and enter. It will show the current role.
-       - If 'None' then type '2' to switch to 'NonOwner'
-       - If 'NonOwner' then type '3' to switch to 'Owner'
+       - If 'None' then type '1' to switch to 'NonOwner'
+       - If 'NonOwner' then type '0' to switch to 'Owner'
      - For node 1:
        - type '2' and enter. It will show the current role.
-       - If 'None' then type '2' to switch to 'NonOwner'
+       - If 'None' then type '1' to switch to 'NonOwner'
        - Stop here.
 
 3. Open a new terminal to run workloads and do the followings to see writes generated on the node 0 can be seen by the node 1:

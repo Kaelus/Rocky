@@ -224,9 +224,9 @@ public class ControlUserInterfaceRunner implements Runnable {
 				System.in));
 		System.out.println("[" + loggerID + "] To which role, "
 				+ "do you want to switch to?\n"
-				+ "[1] None\n"
-				+ "[2] NonOwner\n"
-				+ "[3] Owner\n");
+				+ "[0] Owner\n"
+				+ "[1] NonOwner\n"
+				+ "[2] None\n");
 		String input = null;
 		try {
 			input = br.readLine();
@@ -240,14 +240,14 @@ public class ControlUserInterfaceRunner implements Runnable {
 	public void invokeRoleSwitching(String input) {
 		RockyController.RockyControllerRoleType newRole = null;
 		switch(Integer.parseInt(input)) {
-		case 1:
-			newRole = RockyController.RockyControllerRoleType.None;
+		case 0:
+			newRole = RockyController.RockyControllerRoleType.Owner;
 			break;
-		case 2:
+		case 1:
 			newRole = RockyController.RockyControllerRoleType.NonOwner;
 			break;
-		case 3:
-			newRole = RockyController.RockyControllerRoleType.Owner;
+		case 2:
+			newRole = RockyController.RockyControllerRoleType.None;
 			break;
 		default:
 			break;

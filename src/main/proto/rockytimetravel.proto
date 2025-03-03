@@ -34,45 +34,53 @@ service TimeTraveler {
 
 // The request message containing the user's name.
 message GetStatusRequest {
-  string name = 1;
+
 }
 
 // The response message containing the greetings
 message GetStatusReply {
-  string message = 1;
+  string ackMsg = 1;
+  int32 role = 2;
+  int64 epoch = 3;
 }
 
 
 // The request message containing the user's name.
 message SwitchRoleRequest {
-  string name = 1;
+  int32 roleFrom = 1;
+  int32 roleTo = 2;
 }
 
 // The response message containing the greetings
 message SwitchRoleReply {
-  string message = 1;
+  string ackMsg = 1;
+  int32 roleNew = 2;
 }
 
 
 // The request message containing the user's name.
 message RewindRequest {
-  string name = 1;
+  int64 epochFrom = 1;
+  int64 epochTo = 2;
 }
 
 // The response message containing the greetings
 message RewindReply {
-  string message = 1;
+  string ackMsg = 1;
+  int64 epochNew = 2;
 }
 
 
 // The request message containing the user's name.
 message ReplayRequest {
-  string name = 1;
+  int64 epochFrom = 1;
+  int64 epochTo = 2;
 }
 
 // The response message containing the greetings
 message ReplayReply {
-  string message = 1;
+  string ackMsg = 1;
+  int64 epochNew = 2;
 }
 
 

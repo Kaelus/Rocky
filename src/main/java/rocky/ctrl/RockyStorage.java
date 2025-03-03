@@ -25,6 +25,7 @@ import rocky.ctrl.cloud.GenericKeyValueStore;
 import rocky.ctrl.cloud.ValueStorageDynamoDB;
 import rocky.ctrl.utils.ByteUtils;
 import rocky.ctrl.utils.DebugLog;
+import rocky.timetravel.RockyTimeTraveler;
 
 public class RockyStorage extends FDBStorage {
 		//String nodeID;
@@ -81,6 +82,8 @@ public class RockyStorage extends FDBStorage {
 		
 		ControlUserInterfaceRunner cui;
 		public static Thread controlUIThread;
+		
+		RockyTimeTraveler timetraveler;
 		
 		public static long epochCnt;
 		public static long prefetchedEpoch;
@@ -177,6 +180,14 @@ public class RockyStorage extends FDBStorage {
 			cui.rockyStorage = this;
 			controlUIThread = new Thread(cui);
 			controlUIThread.start();
+			timetraveler = new RockyTimeTraveler(roleSwitcherThread);
+			timetraveler.rockyStorage = this;
+			try {
+				timetraveler.start();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			if (RockyController.pComType.equals(RockyController.RockyPeerCommunicationType.XMLRPC)) {
 				PeerComXMLRPC pComXMLRPC = new PeerComXMLRPC(RockyController.nodeID +"-peerComXMLRPC");
 				pComXMLRPC.setRoleSwitcher(roleSwitcherThread);
@@ -744,11 +755,11 @@ public class RockyStorage extends FDBStorage {
 		 *  State change validity check and all necessary procedures must
 		 *  have been already done before invoking this method:		 *  
 		 *  
-		 *     None    -->    NonOwner    <-->        Owner
+		 *     None       <-->  	  NonOwner    	<-->      	Owner
 		 *  ---------------------------------------------------------
-		 *  RoleSwitcher	RoleSwitcher	       RoleSwitcher
-		 *  				 Prefetcher             Prefetcher
-		 *                                       CloudPackageManager
+		 *  RoleSwitcher			RoleSwitcher		       	RoleSwitcher
+		 *  RockyTimeTraveler		Prefetcher          	   	Prefetcher
+		 *                			RockyTimeTraveler   		CloudPackageManager
 		 */
 		public void switchRole(RockyController.RockyControllerRoleType prevRole, 
 				RockyController.RockyControllerRoleType newRole) {
@@ -764,6 +775,7 @@ public class RockyStorage extends FDBStorage {
 					&& newRole.equals(RockyController.RockyControllerRoleType.Owner)) {
 				try {
 					cloudPackageManagerThread.start();
+					stopRockyTimeTraveler();
 				} catch (IllegalThreadStateException itse) {
 					DebugLog.log("cloudPackageManagerThread has stopped. Recreate to start again.");
 					cloudPackageManagerThread = new Thread(cloudPackageManager);
@@ -771,6 +783,12 @@ public class RockyStorage extends FDBStorage {
 			} else if (prevRole.equals(RockyController.RockyControllerRoleType.Owner) 
 					&& newRole.equals(RockyController.RockyControllerRoleType.NonOwner)) {
 				stopCloudPackageManager();
+				try {
+					timetraveler.start();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			} else if (prevRole.equals(RockyController.RockyControllerRoleType.NonOwner)
 					&& newRole.equals(RockyController.RockyControllerRoleType.None)) {
 				stopPrefetcher();
@@ -1110,6 +1128,18 @@ public class RockyStorage extends FDBStorage {
 			cloudPackageManagerThread.interrupt();
 			try {
 				cloudPackageManagerThread.join();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			System.out.println("Joined the cloud package manager thread. It is now terminated");
+		}
+		
+		public void stopRockyTimeTraveler() {
+			System.out.println("stopping the RockyTimeTraveler");
+			try {
+				timetraveler.stop();
+				timetraveler.blockUntilShutdown();
 			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
