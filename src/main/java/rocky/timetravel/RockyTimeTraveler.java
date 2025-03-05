@@ -1,6 +1,9 @@
 package rocky.timetravel;
 
 import java.io.IOException;
+import java.util.BitSet;
+import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
@@ -10,6 +13,9 @@ import io.grpc.Server;
 import io.grpc.stub.StreamObserver;
 import rocky.ctrl.RockyController;
 import rocky.ctrl.RockyStorage;
+import rocky.ctrl.ValueStorageLevelDB;
+import rocky.ctrl.utils.ByteUtils;
+import rocky.recovery.RecoveryController;
 
 public class RockyTimeTraveler {
 
@@ -116,25 +122,30 @@ public class RockyTimeTraveler {
 			}
 
 			SwitchRoleReply reply = null;
+			String nackMsg = null;
 			if (reqRoleTypeFrom == null) {								// assert 1
 				// reqRoleTypeFrom is not recognizable.
-				logger.severe("ASSERT: requested role (From) cannot be recognized. req.getRoleFrom()=" + req.getRoleFrom());
-				reply = SwitchRoleReply.newBuilder().setAckMsg("SwitchRoleReply=" + "Nack")
+				nackMsg = "ASSERT: requested role (From) cannot be recognized. req.getRoleFrom()=" + req.getRoleFrom();
+				logger.severe(nackMsg);
+				reply = SwitchRoleReply.newBuilder().setAckMsg("SwitchRoleReply=" + "Nack:" + nackMsg)
 						.build();
 			} else if (reqRoleTypeTo == null) {							// assert 2
 				// reqRoleTypeTo is not recognizable.
-				logger.severe("ASSERT: requested role (To) cannot be recognized. req.getRoleTo()=" + req.getRoleTo());
-				reply = SwitchRoleReply.newBuilder().setAckMsg("SwitchRoleReply=" + "Nack")
+				nackMsg = "ASSERT: requested role (To) cannot be recognized. req.getRoleTo()=" + req.getRoleTo();
+				logger.severe(nackMsg);
+				reply = SwitchRoleReply.newBuilder().setAckMsg("SwitchRoleReply=" + "Nack:" + nackMsg)
 						.build();
 			} else if (!RockyController.role.equals(reqRoleTypeFrom)) {	// assert 3
-				logger.severe("ASSERT: requested role (From) is different from the current role of the Rocky!");
-				reply = SwitchRoleReply.newBuilder().setAckMsg("SwitchRoleReply=" + "Nack")
+				nackMsg = "ASSERT: requested role (From) is different from the current role of the Rocky!";
+				logger.severe(nackMsg);
+				reply = SwitchRoleReply.newBuilder().setAckMsg("SwitchRoleReply=" + "Nack:" + nackMsg)
 						.build();
 			} else {													// Ok. Proceeds.
 				invokeRoleSwitching(reqRoleTypeTo);
 				if (!RockyController.role.equals(reqRoleTypeTo)) {			// assert 4
-					logger.severe("ASSERT: requested role (To) is different from the new role of the Rocky!");
-					reply = SwitchRoleReply.newBuilder().setAckMsg("SwitchRoleReply=" + "Nack")
+					nackMsg = "ASSERT: requested role (To) is different from the new role of the Rocky!";
+					logger.severe(nackMsg);
+					reply = SwitchRoleReply.newBuilder().setAckMsg("SwitchRoleReply=" + "Nack:" + nackMsg)
 							.build();
 					invokeRoleSwitching(reqRoleTypeFrom); // rollback the role switch
 				} else {
@@ -151,11 +162,67 @@ public class RockyTimeTraveler {
 		public void rewind(RewindRequest req, StreamObserver<RewindReply> responseObserver) {
 			System.out.println("Entered rewind");
 			System.out.println("req msg for this RPC: epochFrom=" + req.getEpochFrom() + " epochTo=" + req.getEpochTo());
-			// Assert: Execute rewind only if the node is NonOwner 
+
+			RewindReply reply = null;
+			String nackMsg = null;
+					
+			// ASSERT: Execute rewind only if the node is NonOwner
+			if (!RockyController.role.equals(RockyController.RockyControllerRoleType.NonOwner)) {
+				nackMsg = "ASSERT: Execute rewind only if the node is NonOwner";
+				System.err.println(nackMsg);
+				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Nack:" + nackMsg)
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();
+			} else if (req.getEpochFrom() <= req.getEpochTo()) { // ASSERT: epochFrom > epochTo should be true
+				nackMsg = "ASSERT: epochFrom > epochTo should be true";
+				System.err.println(nackMsg);
+				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Nack:" + nackMsg)
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();			
+			} else if (req.getEpochFrom() != RockyStorage.epochCnt) { // ASSERT: epochFrom should be equal to current epoch
+				nackMsg = "ASSERT: epochFrom should be equal to current epoch";
+				System.err.println(nackMsg);
+				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Nack:" + nackMsg)
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();			
+			} else if (req.getEpochTo() < 1) { // ASSERT: epochTo should be equal to or greater than 1 
+				nackMsg = "ASSERT: epochTo should be equal to or greater than 1";
+				System.err.println(nackMsg);
+				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Nack:" + nackMsg)
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();			
+			} else {
 			
-			RewindReply reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Ack")
-					.setEpochNew(RockyStorage.epochCnt)
-					.build();
+				long epochTo = req.getEpochTo();
+				
+				// initialize RecoveryController to reset states below
+				RecoveryController.epochEa = -1;
+				RecoveryController.hasCloudFailed = false;
+				RecoveryController.localBlockResetBitmap = new BitSet(RockyStorage.presenceBitmap.length());
+				try {
+					RecoveryController.localBlockResetEpochAndBlockIDPairStore = new ValueStorageLevelDB(RockyStorage.prefixPathForLocalStorage + "-localBlockResetEpochAndBlockIDPairStoreTable");
+					RecoveryController.localBlockResetEpochAndBlockIDPairStore.clean(); // clean the effect from the previous run 
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				
+				// reset VersionMap state back to epochTo
+				RecoveryController.recoverVersionMap(1, epochTo);
+								
+				// reset RockyStorage state back to epochTo
+				RecoveryController.recoverRockyStorage(1, epochTo);
+				
+				// presence bitmap should be reset to 1 for all bits
+				RockyStorage.presenceBitmap.set(0, RockyStorage.numBlock);
+				
+				// reset epochCnt properly
+				RockyStorage.epochCnt = epochTo;
+				
+				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Ack")
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();
+			}
 			responseObserver.onNext(reply);
 			responseObserver.onCompleted();
 		}
@@ -164,11 +231,52 @@ public class RockyTimeTraveler {
 		public void replay(ReplayRequest req, StreamObserver<ReplayReply> responseObserver) {
 			System.out.println("Entered replay");
 			System.out.println("req msg for this RPC: epochFrom=" + req.getEpochFrom() + " epochTo=" + req.getEpochTo());
-			// Assert: Execute rewind only if the node is NonOwner
+
+			ReplayReply reply = null;
+			String nackMsg = null;
+			long latestEpochOnCloud = rockyStorage.getEpoch();
 			
-			ReplayReply reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Ack")
-					.setEpochNew(RockyStorage.epochCnt)
-					.build();
+			// Assert: Execute replay only if the node is NonOwner
+			if (!RockyController.role.equals(RockyController.RockyControllerRoleType.NonOwner)) {
+				System.err.println("ASSERT: Execute replay only if the node is NonOwner");
+				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Nack")
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();
+				
+			} else if (req.getEpochFrom() >= req.getEpochTo()) { // ASSERT: epochFrom < epochTo should be true
+				nackMsg = "ASSERT: epochFrom < epochTo should be true";
+				System.err.println(nackMsg);
+				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Nack:" + nackMsg)
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();			
+			} else if (req.getEpochFrom() != RockyStorage.epochCnt) { // ASSERT: epochFrom should be equal to current epoch
+				nackMsg = "ASSERT: epochFrom should be equal to current epoch";
+				System.err.println(nackMsg);
+				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Nack:" + nackMsg)
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();
+			} else if (req.getEpochTo() > latestEpochOnCloud) { // ASSERT: epochTo should not exceed latest epoch on the cloud
+				nackMsg = "ASSERT: epochTo should not exceed latest epoch on the cloud";
+				System.err.println(nackMsg);
+				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Nack:" + nackMsg)
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();
+				
+			} else {
+				
+				long epochFrom = req.getEpochFrom();
+				long epochTo = req.getEpochTo();
+				
+				// incrementally replay up to epochTo
+				incReplay(epochFrom, epochTo);
+				
+				// advance epochCnt properly
+				RockyStorage.epochCnt = epochTo;
+				
+				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Ack")
+						.setEpochNew(RockyStorage.epochCnt)
+						.build();
+			}
 			responseObserver.onNext(reply);
 			responseObserver.onCompleted();
 		}
@@ -210,6 +318,23 @@ public class RockyTimeTraveler {
 				}	
 			}
 			System.out.println("current owner recorded on cloud is=" + rockyStorage.getOwner());
+		}
+		
+		private void incReplay(long epochFrom, long epochTo) {
+			// Get all epoch bitmaps
+			List<BitSet> epochBitmapList = rockyStorage.fetchNextEpochBitmaps(epochTo, epochFrom);
+			
+			// Get a list of blockIDs to prefetch
+			HashSet<Integer> blockIDList = rockyStorage.getPrefetchBlockIDList(epochBitmapList);
+			
+			// Logically, we have to reset bits to 0 for blocks that are updated/dirtied.
+			// Yet, we will (1) fetch all dirty blocks below; (2) set bits for all fetched blocks
+			// Thus, we skip resetting bits to 0 that are going to be set to 1 again right below.
+			
+			if (blockIDList != null) { // if blockIDList is null, we don't need to prefetch anything
+				// Prefetch loop
+				rockyStorage.prefetchBlocks(rockyStorage, blockIDList);
+			}
 		}
 		
 	}

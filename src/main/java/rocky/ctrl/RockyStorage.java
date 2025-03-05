@@ -874,6 +874,8 @@ public class RockyStorage extends FDBStorage {
 					long latestEpoch = -1;
 					//long myPrefetchedEpoch = 0;
 					while (true) {
+						System.out.println("Scheduling prefetch after " + RockyController.prefetchPeriod + "ms" );
+						Thread.sleep(RockyController.prefetchPeriod);
 						try {
 							byte[] latestEpochBytes = cloudBlockSnapshotStore.get("EpochCount");
 							if (latestEpochBytes == null) {
@@ -938,7 +940,6 @@ public class RockyStorage extends FDBStorage {
 								}
 							}
 						}
-						Thread.sleep(RockyController.prefetchPeriod);
 					}
 				} catch (InterruptedException e) {
 					// TODO Auto-generated catch block

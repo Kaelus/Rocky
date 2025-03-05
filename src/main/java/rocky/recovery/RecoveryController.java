@@ -105,11 +105,13 @@ public class RecoveryController {
 	}
 	
 	/**
-	 * The version map is to keep track of the latest epoch known to this node.
-	 * The node may or may not have the latest copy. If it does not have the latest version
-	 * of the block snapshot, it needs to fetch the block snapshot of that version from the cloud.
-	 * That is when the version map is needed. By getting the latest epoch for the block ID,
-	 * this node can find out which block snapshot it specifically needs to fetch from the cloud. 
+	 * The version map is to keep track of the epoch of the latest block snapshots known to 
+	 * this node. The node may or may not already have all latest block snapshots. If the node 
+	 * does not have the latest block snapshot for some block, the node needs to fetch the 
+	 * latest block snapshot known to the node from the cloud. To do so, the epoch when the 
+	 * latest block snapshot for the block has been committed should be found out. That is when 
+	 * the version map is needed. By getting the latest epoch for the block ID, this node can 
+	 * find out exactly which block snapshot it specifically needs to fetch from the cloud. 
 	 * Therefore, after recovery process, this node needs to have the latest block snapshots not 
 	 * newer than e_a - 1 where e_a is the epoch when the tampering attack first began. 
 	 * 
@@ -129,7 +131,7 @@ public class RecoveryController {
 	 * @param beginEpoch The first epoch the recovery goes back.
 	 * @param endEpoch The last epoch the recovery can fast forward.
 	 */
-	protected static void recoverVersionMap(long beginEpoch, long endEpoch) {
+	public static void recoverVersionMap(long beginEpoch, long endEpoch) {
 		System.out.println("recoverVersionMap beginEpoch=" + beginEpoch + " endEpoch=" + endEpoch);
 		byte[] epochBitmap = null;
 		for (long i = beginEpoch; i <= endEpoch; i++) {
@@ -185,7 +187,7 @@ public class RecoveryController {
 	 * @param beginEpoch The first epoch the recovery goes back.
 	 * @param endEpoch The last epoch the recovery can fast forward.
 	 */
-	protected static void recoverRockyStorage(long beginEpoch, long endEpoch) {
+	public static void recoverRockyStorage(long beginEpoch, long endEpoch) {
 		// fetch required blocks from CBSS and store it into the rocky storage (i.e. FDBArray).
 		System.out.println("resetRockyStorage entered");
 		byte[] resetValue;
