@@ -20,6 +20,10 @@ Tested with the following versions of software:
 
 3. Gradle 8.5
 
+4. (optional for Python gRPC client stub)
+   - Python 3.10.12
+   - pip 22.0.2
+
 # Prerequisites
 
 Replace \<RockyHome\> below with the directory path where you cloned the Rocky git repo.
@@ -46,13 +50,33 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
        Default Region Name: fakeRegion
        Default output format: fakeOutputFormat
 
+4. (optional for Python gRPC client stub) Install python3 and setup virtualenv properly
+   - `sudo apt install -y python3-pip`
+   - `sudo apt install -y build-essential libssl-dev libffi-dev python3-dev`
+   - `sudo apt install -y python3-venv`
+   - Go to \<RockyHome\>
+   - `python3 -m venv rocky_venv`
+   - `source rocky_venv/bin/activate`
+   - `python -m pip install grpcio`
+   - `python -m pip install grpcio-tools`
+   - `deactivate`
+
 # How to build
+
+When you are in \<RockyHome\>
 
 1. Build to generate gRPC stuffs first.
    - `./gradlew clean generateProto`
 
 2. Build to generate fatJar to produce the executable Jar including every dependencies needed.
    - `./gradlew clean fatJar`
+
+3. (optional for Python gRPC client stub) Generate gRPC Python client stub
+   - `source rocky_venv/bin/activate`
+   - `cd src/main/python/rocky_tt_client`
+   - `mkdir src/main/python/grpc_generated`
+   - `python -m grpc_tools.protoc -I./src/main/python/grpc_generated --python_out=./src/main/python/grpc_generated --grpc_python_out=./src/main/python/grpc_generated --proto_path=./src/main/proto/ rockytimetravel.proto`
+   - `export PYTHONPATH=$PYTHONPATH:\`pwd\`/src/main/python/grpc_generated:\`pwd\`/rocky_venv/lib/python3.10/site-packages`
 
 # How to prepare to run
 
@@ -206,7 +230,81 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
    - For node 1: 
      - Go to the node 1's terminal and make node 1 prefetch all recent changes by typing '6' (recall, you can type '9' to toggle the verbose mode)
      - After prefetch completes, go back to the original terminal and mount "nbd1" to "/tmp/mp1" as read-only and also do not load the journal on mounting.
-       - `sudo mount -o ro,noload /dev/nbd1 /tmp/mp1`
+       - `sudo mount -o ro,noload,nobarrier,noexec,nosuid,nodev /dev/nbd1 /tmp/mp1`
      - Then, check if the content written on nbd0 is visible from nbd1.
        - `cat /tmp/mp1/hello`
      - `sudo umount /tmp/mp1`
+
+4. To finish running Rocky:
+   - Type -1 in the terminal where a Rocky node is running
+   - To stop other components, use the script stop_local.sh:
+     - `./stop_local.sh`
+
+# How to run Rocky TimeTraveler Python Client
+
+1. Assuming you have already done "How to prepare to run multiple instances (on the same localhost)", do the following.
+   - Run each instance by providing proper path to the configuration file to use.
+     - For example, to run Rocky instance for the node ID 0 and 1, do the followings:
+       - Open a terminal for node 0:
+       	 - `./run_local.sh ../conf/0/rocky_local.cfg`
+       - Open another terminal for node 1:
+       	 - `./run_local.sh ../conf/1/rocky_local.cfg`
+
+
+2. Switching the role of the first Rocky instance to be 'Owner' (Say "node 0")
+   - type '2' and enter. It will show the current role.
+   - If 'None' then type '1' to switch to 'NonOwner'
+   - If 'NonOwner' then type '0' to switch to 'Owner'
+
+3. Generate workloads and flush changes to the cloud to move the epoch forward multiple times (You may run a VM, ransomware in it, for a more comprehensive test):
+   - Open a new terminal to execute a workload below.
+   - `sudo mkfs.ext4 /dev/nbd0`
+     - if the above does not work, try:
+       - `sudo mkfs.ext2 /dev/nbd0`
+   - Type '5' in the test loop of the Owner's terminal to flush. 
+     - This will create mutation snapshots for epoch 1.
+   - `sudo mount /dev/nbd0 /tmp/mp0`
+   - `ls /tmp/mp0`
+   - Should be able to see the directory "lost+found" in "/tmp/mp0"
+   - Create some file into "/tmp/mp0"
+     - `sudo touch /tmp/mp0/hello`
+     - `echo 'Hello, World!' | sudo tee /tmp/hello`
+   - Type '5' in the test loop of the Owner's terminal to flush.
+     - This will create mutation snapshots for epoch 2.
+   - Create another file into "/tmp"
+     - `sudo touch /tmp/mp0/goodbye`
+     - `echo 'Goodbye, World!' | sudo tee /tmp/hello`
+   - Type '5' in the test loop of the Owner's terminal to flush.
+     - This will create mutation snapshots for epoch 3.
+
+4. Use the second Rocky instance (say "Node 1") to conduct tests for rewind and replay
+   - Switching the role of Node 1 to be "NonOwner"
+     - type '2' and enter. It will show the current role.
+     - If 'None' then type '1' to switch to 'NonOwner'
+     - Stop here.
+   - Open another terminal. 
+     - Go to "\<RockyHome\>"
+     - Activate python virtual environment for rocky.
+       - `source rocky_venv/bin/activate`
+     - Go to the directory containing the gRPC Python client and run it along with a configuration file used to run the Node 1 (e.g., "~/working_dir/rocky_local/conf/1/rocky_local.cfg")
+       - `cd src/main/python/rocky_tt_client`
+       - `python rocky_timetravel_client.py ~/working_dir/rocky/local/conf/1/rocky_local.cfg`
+     - Have node 1 incrementally replay.
+       - replay from epoch 0 to epoch 1
+       	 - mount the device and check there exist file systems on the device
+           - `sudo mount -o ro,noload,nobarrier,noexec,nosuid,nodev /dev/nbd1 /tmp/mp1`
+       - replay from epoch 1 to epoch 2
+       	 - mount the device and check there exist hello file and check its content
+       - replay from epoch 2 to epoch 3
+       	 - mount the device and check there exist goodbye file and check its content
+       - Now, try to rewind to epoch 1.
+       	 - mount the device and check there exist file systems on the device
+	 - NOTE: Currently, rewinding is limited. We are not undoing IOs but redoing IOs starting from the beginning which is the epoch 1. As we are replaying IOs without rolling back changes, it is actually replaying IOs against the current block device state. It works because the first writes to the device are formatting the device with a new file system. This effectively delete any changes made afterwards by replaying IOs during the epoch 1. If the first writes were not that, then there will be problems expected. Later we may use a snapshot and replay IOs based on the snapshot.
+     - After finishing with testing, exit the rocky time traveler client by typing '5'.
+     - Then, exit the python virtual environment.
+       - `deactivate`
+
+5. To finish running Rocky:
+   - Type -1 in the terminal where a Rocky node is running
+   - To stop other components, use the script stop_local.sh:
+     - `./stop_local.sh`

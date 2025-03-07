@@ -282,7 +282,7 @@ public class RockyStorage extends FDBStorage {
 					//System.out.println("epochBytes length=" + epochBytes.length);
 					retLong = ByteUtils.bytesToLong(epochBytes);
 					System.out.println("Currently epochCnt=" + epochCnt);
-					System.out.println("Updating epochCnt to be=" + retLong);
+					System.out.println("epochCnt from Cloud (to be returned)=" + retLong);
 				}
 			} catch (IOException e) {
 				e.printStackTrace();

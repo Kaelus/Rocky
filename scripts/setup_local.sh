@@ -49,6 +49,9 @@ while [ $i -lt $num_node ]; do
 
     nbd_port=`expr 10810 + $i`
     sed -i -e "14s|.*|nbdPort=$nbd_port|" $conf_dir/$i/rocky_local.cfg
+
+    grpc_port=`expr 50051 + $i`
+    sed -i -e "15s|.*|gRPCPort=$grpc_port|" $conf_dir/$i/rocky_local.cfg 
     
     sed -i -e "2s|.*|lcvdName=testinglocal${i}|" $conf_dir/$i/rocky_local.cfg
     sed -i -e "2s|.*|lcvdName=testinglocal${i}|" $conf_dir/$i/recover_local.cfg

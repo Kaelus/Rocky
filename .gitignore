@@ -18,3 +18,5 @@ inputFiles/
 shared-local-instance.db
 \#*
 working_dir/
+rocky_venv/
+grpc_generated/

@@ -38,10 +38,13 @@ public class RockyController {
 	
 	public static final Integer defaultPCOMPort = 12300;
 	public static final Integer defaultNBDPort = 10810;
+	public static final Integer defaultGRPCPort = 50051;
 	public static String myIP;
 	public static Integer pComPort;
 	public static Integer nbdPort;
 
+	public static Integer gRPCPort;
+	
 	public static String nodeID;
 	
 	public static String lcvdName;
@@ -72,6 +75,7 @@ public class RockyController {
 		myIP = "127.0.0.1";
 		pComPort = defaultPCOMPort;
 		nbdPort = defaultNBDPort;
+		gRPCPort = defaultGRPCPort;
 		rockyMode = RockyModeType.Rocky;
 		backendStorage = BackendStorageType.DynamoDBLocal;
 		role = RockyControllerRoleType.None;
@@ -94,6 +98,7 @@ public class RockyController {
 		System.out.println("myIP=" + myIP);
 		System.out.println("pComPort=" + pComPort);
 		System.out.println("nbdPort=" + nbdPort);
+		System.out.println("gRPCPort=" + gRPCPort);
 		System.out.println("nodeID=" + nodeID);
 		System.out.println("rockyMode=" + rockyMode);
 		System.out.println("backendStorageType=" + backendStorage);
@@ -261,6 +266,10 @@ public class RockyController {
 		    	   String[] tokens = line.split("=");
 		    	   nbdPort = Integer.parseInt(tokens[1]);
 		    	   System.out.println("nbdPort=" + nbdPort);
+		       } else if (line.startsWith("gRPCPort")) { 
+		    	   String[] tokens = line.split("=");
+		    	   gRPCPort = Integer.parseInt(tokens[1]);
+		    	   System.out.println("gRPCPort=" + gRPCPort);
 		       } else if (line.startsWith("cloudTableNamePrefix")) {
 		    	   String[] tokens = line.split("=");
 		    	   cloudTableNamePrefix = tokens[1];

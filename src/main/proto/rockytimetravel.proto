@@ -42,6 +42,7 @@ message GetStatusReply {
   string ackMsg = 1;
   int32 role = 2;
   int64 epoch = 3;
+  int64 latestEpoch = 4;
 }
 
 

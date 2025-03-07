@@ -33,10 +33,10 @@ public class RockyTimeTraveler {
 
 	public void start() throws IOException {
 		/* The port on which the server should run */
-		int port = 50051;
-		server = Grpc.newServerBuilderForPort(port, InsecureServerCredentials.create()).addService(new TimeTravelerImpl())
+		//int port = 50051;
+		server = Grpc.newServerBuilderForPort(RockyController.gRPCPort, InsecureServerCredentials.create()).addService(new TimeTravelerImpl())
 				.build().start();
-		logger.info("RockyTimeTraveler Server started, listening on " + port);
+		logger.info("RockyTimeTraveler Server started, listening on " + RockyController.gRPCPort);
 		Runtime.getRuntime().addShutdownHook(new Thread() {
 			@Override
 			public void run() {
@@ -77,9 +77,11 @@ public class RockyTimeTraveler {
 		public void getStatus(GetStatusRequest req, StreamObserver<GetStatusReply> responseObserver) {
 			System.out.println("Entered getStatus");
 			System.out.println("req msg has no field for this RPC");
+			long latestEpochOnCloud = rockyStorage.getEpoch();
 			GetStatusReply reply = GetStatusReply.newBuilder().setAckMsg("GetStatusReply=" + "Ack")
 					.setRole(RockyController.role.ordinal())
-					.setEpoch(RockyStorage.epochCnt)
+					.setEpoch(RockyStorage.prefetchedEpoch)
+					.setLatestEpoch(latestEpochOnCloud)
 					.build();
 			responseObserver.onNext(reply);
 			responseObserver.onCompleted();
@@ -171,25 +173,25 @@ public class RockyTimeTraveler {
 				nackMsg = "ASSERT: Execute rewind only if the node is NonOwner";
 				System.err.println(nackMsg);
 				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Nack:" + nackMsg)
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();
 			} else if (req.getEpochFrom() <= req.getEpochTo()) { // ASSERT: epochFrom > epochTo should be true
 				nackMsg = "ASSERT: epochFrom > epochTo should be true";
 				System.err.println(nackMsg);
 				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Nack:" + nackMsg)
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();			
-			} else if (req.getEpochFrom() != RockyStorage.epochCnt) { // ASSERT: epochFrom should be equal to current epoch
+			} else if (req.getEpochFrom() != RockyStorage.prefetchedEpoch) { // ASSERT: epochFrom should be equal to current epoch
 				nackMsg = "ASSERT: epochFrom should be equal to current epoch";
 				System.err.println(nackMsg);
 				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Nack:" + nackMsg)
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();			
 			} else if (req.getEpochTo() < 1) { // ASSERT: epochTo should be equal to or greater than 1 
 				nackMsg = "ASSERT: epochTo should be equal to or greater than 1";
 				System.err.println(nackMsg);
 				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Nack:" + nackMsg)
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();			
 			} else {
 			
@@ -216,11 +218,11 @@ public class RockyTimeTraveler {
 				// presence bitmap should be reset to 1 for all bits
 				RockyStorage.presenceBitmap.set(0, RockyStorage.numBlock);
 				
-				// reset epochCnt properly
-				RockyStorage.epochCnt = epochTo;
+				// reset prefetchedEpoch properly
+				RockyStorage.prefetchedEpoch = epochTo;
 				
 				reply = RewindReply.newBuilder().setAckMsg("RewindReply=" + "Ack")
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();
 			}
 			responseObserver.onNext(reply);
@@ -240,26 +242,26 @@ public class RockyTimeTraveler {
 			if (!RockyController.role.equals(RockyController.RockyControllerRoleType.NonOwner)) {
 				System.err.println("ASSERT: Execute replay only if the node is NonOwner");
 				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Nack")
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();
 				
 			} else if (req.getEpochFrom() >= req.getEpochTo()) { // ASSERT: epochFrom < epochTo should be true
 				nackMsg = "ASSERT: epochFrom < epochTo should be true";
 				System.err.println(nackMsg);
 				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Nack:" + nackMsg)
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();			
-			} else if (req.getEpochFrom() != RockyStorage.epochCnt) { // ASSERT: epochFrom should be equal to current epoch
+			} else if (req.getEpochFrom() != RockyStorage.prefetchedEpoch) { // ASSERT: epochFrom should be equal to current epoch
 				nackMsg = "ASSERT: epochFrom should be equal to current epoch";
 				System.err.println(nackMsg);
 				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Nack:" + nackMsg)
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();
 			} else if (req.getEpochTo() > latestEpochOnCloud) { // ASSERT: epochTo should not exceed latest epoch on the cloud
 				nackMsg = "ASSERT: epochTo should not exceed latest epoch on the cloud";
 				System.err.println(nackMsg);
 				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Nack:" + nackMsg)
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();
 				
 			} else {
@@ -270,11 +272,11 @@ public class RockyTimeTraveler {
 				// incrementally replay up to epochTo
 				incReplay(epochFrom, epochTo);
 				
-				// advance epochCnt properly
-				RockyStorage.epochCnt = epochTo;
+				// advance prefetchedEpoch properly
+				RockyStorage.prefetchedEpoch = epochTo;
 				
 				reply = ReplayReply.newBuilder().setAckMsg("ReplayReply=" + "Ack")
-						.setEpochNew(RockyStorage.epochCnt)
+						.setEpochNew(RockyStorage.prefetchedEpoch)
 						.build();
 			}
 			responseObserver.onNext(reply);
@@ -334,6 +336,15 @@ public class RockyTimeTraveler {
 			if (blockIDList != null) { // if blockIDList is null, we don't need to prefetch anything
 				// Prefetch loop
 				rockyStorage.prefetchBlocks(rockyStorage, blockIDList);
+				
+				// Update PrefetchedEpoch-<nodeID> on cloud and prefetchedEpoch
+				try {
+					RockyStorage.cloudBlockSnapshotStore.put("PrefetchedEpoch-" + RockyController.nodeID, ByteUtils.longToBytes(epochTo));
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				RockyStorage.prefetchedEpoch = epochTo;
 			}
 		}
 		
