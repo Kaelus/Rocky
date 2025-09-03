@@ -73,10 +73,9 @@ When you are in \<RockyHome\>
 
 3. (optional for Python gRPC client stub) Generate gRPC Python client stub
    - `source rocky_venv/bin/activate`
-   - `cd src/main/python/rocky_tt_client`
-   - `mkdir src/main/python/grpc_generated`
+   - `mkdir -p src/main/python/grpc_generated`
    - `python -m grpc_tools.protoc -I./src/main/python/grpc_generated --python_out=./src/main/python/grpc_generated --grpc_python_out=./src/main/python/grpc_generated --proto_path=./src/main/proto/ rockytimetravel.proto`
-   - `export PYTHONPATH=$PYTHONPATH:\`pwd\`/src/main/python/grpc_generated:\`pwd\`/rocky_venv/lib/python3.10/site-packages`
+   - `export PYTHONPATH=$PYTHONPATH:$(pwd)/src/main/python/grpc_generated:$(pwd)/rocky_venv/lib/python3.10/site-packages`
 
 # How to prepare to run
 
