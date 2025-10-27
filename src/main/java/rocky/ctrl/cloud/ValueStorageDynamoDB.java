@@ -8,6 +8,9 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.List;
+import java.util.ArrayList;
+import java.nio.ByteBuffer;
 
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.regions.Regions;
@@ -30,6 +33,13 @@ import com.amazonaws.services.dynamodbv2.model.ListTablesResult;
 import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput;
 import com.amazonaws.services.dynamodbv2.model.ScalarAttributeType;
 
+
+import com.amazonaws.services.dynamodbv2.model.WriteRequest;
+import com.amazonaws.services.dynamodbv2.model.PutRequest;
+import com.amazonaws.services.dynamodbv2.model.BatchWriteItemRequest;
+import com.amazonaws.services.dynamodbv2.model.BatchWriteItemResult;
+import com.amazonaws.services.dynamodbv2.model.AttributeValue;
+import com.amazonaws.ClientConfiguration;
 import rocky.ctrl.RockyStorage;
 
 /**
@@ -51,17 +61,31 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 	
 	//public ValueStorageDynamoDB(String filename, boolean localMode) {
 	public ValueStorageDynamoDB(String filename, AWSRegionEnum region) {
+		ClientConfiguration clientConfig = new ClientConfiguration();
+		clientConfig.setMaxConnections(1024);
+		clientConfig.setConnectionTimeout(10000000);
+		clientConfig.setSocketTimeout(10000000); // 20 seconds
+    	clientConfig.setRequestTimeout(10000000); // 20 seconds
+		
+
 		if (region.equals(AWSRegionEnum.LOCAL)) {
 			// To use the local version dynamodb for development
 			client = AmazonDynamoDBClientBuilder.standard().withEndpointConfiguration(
 					new AwsClientBuilder.EndpointConfiguration("http://localhost:8000", "us-east-1"))
+					.withClientConfiguration(clientConfig)
 					.build();
 		} else if (region.equals(AWSRegionEnum.SEOUL)) {
-			client = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2).build();
+			client = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.AP_NORTHEAST_2)
+					.withClientConfiguration(clientConfig)
+					.build();
 		} else if (region.equals(AWSRegionEnum.LONDON)) {
-			client = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.EU_WEST_2).build();
+			client = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.EU_WEST_2)
+					.withClientConfiguration(clientConfig)
+					.build();
 		} else if (region.equals(AWSRegionEnum.OHIO)) {
-			client = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.US_EAST_2).build();
+			client = AmazonDynamoDBClientBuilder.standard().withRegion(Regions.US_EAST_2)
+					.withClientConfiguration(clientConfig)
+					.build();
 		} else {
 			// To use the actual AWS
 			client = AmazonDynamoDBClientBuilder.defaultClient();
@@ -172,6 +196,58 @@ public class ValueStorageDynamoDB implements GenericKeyValueStore {
 			System.err.println(e.getMessage());
 		}
 
+	}
+
+	@Override
+	public void putItems(HashMap<String, byte[]> items) throws IOException {
+		try {
+			if (RockyStorage.debugPrintoutFlag) {
+				System.out.println("Adding multiple items...");
+			}
+
+			final int batchSize = 24;
+
+			List<WriteRequest> writeRequests = new ArrayList<>();
+			for (Map.Entry<String, byte[]> entry : items.entrySet()) {
+				Map<String, AttributeValue> itemMap = new HashMap<>();
+				itemMap.put("key", new AttributeValue(entry.getKey()));
+				itemMap.put("value", new AttributeValue().withB(ByteBuffer.wrap(entry.getValue())));
+
+				WriteRequest writeRequest = new WriteRequest(new PutRequest().withItem(itemMap));
+				writeRequests.add(writeRequest);
+			}
+			List<List<WriteRequest>> batches = new ArrayList<>();
+			for (int i = 0; i < writeRequests.size(); i += batchSize) {
+				batches.add(writeRequests.subList(i, Math.min(i + batchSize, writeRequests.size())));
+			}
+
+			for (int i = 0; i < batches.size(); i++) {
+				Map<String, List<WriteRequest>> requestItems = new HashMap<>();
+				requestItems.put(tableName, batches.get(i));
+
+				BatchWriteItemRequest batchWriteItemRequest = new BatchWriteItemRequest()
+					.withRequestItems(requestItems);
+				BatchWriteItemResult result = client.batchWriteItem(batchWriteItemRequest);
+
+				if (RockyStorage.debugPrintoutFlag) {
+					System.out.println("Added a batch item..." + i + " / " + batches.size());
+				}
+
+				while (!result.getUnprocessedItems().isEmpty()) {
+					if (RockyStorage.debugPrintoutFlag) {
+						System.out.println("Unprocessed items found, retrying...");
+					}
+					result = client.batchWriteItem(new BatchWriteItemRequest()
+						.withRequestItems(result.getUnprocessedItems()));
+				}
+			}
+		} catch (Exception e) {
+			System.err.println("Unable to add items: " + items.keySet());
+			System.err.println(e.getMessage());
+		}
+		if (RockyStorage.debugPrintoutFlag) {
+			System.out.println("PutItems succeeded.");
+		}
 	}
 
 	@Override

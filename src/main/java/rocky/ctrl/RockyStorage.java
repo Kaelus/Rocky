@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -26,6 +27,10 @@ import rocky.ctrl.cloud.ValueStorageDynamoDB;
 import rocky.ctrl.utils.ByteUtils;
 import rocky.ctrl.utils.DebugLog;
 import rocky.timetravel.RockyTimeTraveler;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class RockyStorage extends FDBStorage {
 		//String nodeID;
@@ -1150,9 +1155,11 @@ public class RockyStorage extends FDBStorage {
 		
 		public class CloudPackageManager implements Runnable {
 			protected final BlockingQueue<WriteRequest> q;
+
 			public CloudPackageManager(BlockingQueue<WriteRequest> q) { 
 				this.q = q; 
 			}
+
 			@Override
 			public void run() {
 				System.out.println("[CloudPackageManager] run entered");
@@ -1193,7 +1200,9 @@ public class RockyStorage extends FDBStorage {
 				System.out.println("[CloudFlusher] Entered CloudFlusher run");
 				//System.err.println("[CloudFlusher] writeMap lock acquire attempt");
 				HashMap<Integer, byte[]> writeMapClone = null;
+
 				BitSet dirtyBitmapClone = null;
+
 				synchronized(writeMap) {
 					//System.err.println("[CloudFlusher] writeMap lock acquired");
 					synchronized (dirtyBitmap) {
@@ -1203,24 +1212,34 @@ public class RockyStorage extends FDBStorage {
 						dirtyBitmap.clear();
 					}				
 				}
-				//System.err.println("[CloudFlusher] writeMap lock released");
+
+				int numThread = Runtime.getRuntime().availableProcessors() * 2;
+				// int numThread = 1024;
+
 				long curEpoch = epochCnt + 1;
-				for (Integer i : writeMapClone.keySet()) {
-					byte[] buf = writeMapClone.get(i);
-					try {
-						String blockSnapshotID = curEpoch + ":" + i;
-						if (debugPrintoutFlag) {
-							System.out.println("For blockID=" + i + " buf is written to the cloud");
-							System.out.println("blockSnapshotID=" + blockSnapshotID);
-						}
-						localBlockSnapshotStore.put(blockSnapshotID, buf);
-						versionMap.put(String.valueOf(i), ByteUtils.longToBytes(curEpoch));
-						cloudBlockSnapshotStore.put(blockSnapshotID, buf);
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
+
+				List<HashMap<String, byte[]>> subsets = splitWriteMap(writeMapClone, numThread, curEpoch);
+				
+				List<CompletableFuture<Void>> futures = new ArrayList<>();
+				for (HashMap<String, byte[]> subset : subsets) {
+					futures.add(CompletableFuture.runAsync(() -> writeSubsetAsync(subset, curEpoch)));
 				}
+
+				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+				// ExecutorService executor = Executors.newFixedThreadPool(numThread);
+
+				// for (HashMap<Integer, byte[]> subset : subsets) {
+					// executor.submit(() -> writeSubset(subset, curEpoch));
+				// }
+				// executor.shutdown();
+
+				if (debugPrintoutFlag) {
+					System.out.println("Finsished writing subset to the cloud");
+				}
+
+				//System.err.println("[CloudFlusher] writeMap lock released");
+				
 				byte[] dmBytes = dirtyBitmapClone.toByteArray();
 				try {
 					if (debugPrintoutFlag) {
@@ -1250,6 +1269,56 @@ public class RockyStorage extends FDBStorage {
 					nextFlusherTask = new CloudFlusher();
 					flusherTimer.schedule(nextFlusherTask, RockyController.epochPeriod);
 				}
+			}
+
+			private void writeSubsetAsync(HashMap<String, byte[]> subset, long curEpoch) {
+				for (String blockSnapshotID : subset.keySet()) {
+					byte[] buf = subset.get(blockSnapshotID);
+					try {
+						// if (debugPrintoutFlag) {
+						// 	System.out.println("For blockID=" + blockSnapshotID + " buf is written to the cloud");
+						// }
+						localBlockSnapshotStore.put(blockSnapshotID, buf);
+						Integer blockID = Integer.parseInt(blockSnapshotID.split(":")[1]);
+						String blockIDStr = String.valueOf(blockID);
+						versionMap.put(blockIDStr, ByteUtils.longToBytes(curEpoch));
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+				try {
+					cloudBlockSnapshotStore.putItems(subset);
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+
+			private List<HashMap<String, byte[]>> splitWriteMap(HashMap<Integer, byte[]> writeMap, int numChunks, long curEpoch) {
+				List<HashMap<String, byte[]>> chunks = new ArrayList<>();
+				int chunkSize = (int) Math.ceil((double) writeMap.size() / numChunks);
+
+				Iterator<Map.Entry<Integer, byte[]>> iterator = writeMap.entrySet().iterator();
+				for (int i = 0; i < numChunks; i++) {
+					HashMap<String, byte[]> chunk = new HashMap<>();
+					for (int j = 0; j < chunkSize && iterator.hasNext(); j++) {
+						Map.Entry<Integer, byte[]> entry = iterator.next();
+						String blockSnapshotID = curEpoch + ":" + entry.getKey();
+						chunk.put(blockSnapshotID, entry.getValue());
+					}
+					chunks.add(chunk);
+				}
+
+				if (iterator.hasNext()) {
+					HashMap<String, byte[]> lastChunk = chunks.get(chunks.size() - 1);
+					while (iterator.hasNext()) {
+						Map.Entry<Integer, byte[]> entry = iterator.next();
+						String blockSnapshotID = curEpoch + ":" + entry.getKey();
+						lastChunk.put(blockSnapshotID, entry.getValue());
+					}
+				}
+				return chunks;
 			}
 		}
 
