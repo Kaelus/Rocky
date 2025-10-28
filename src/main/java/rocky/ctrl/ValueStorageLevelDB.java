@@ -9,6 +9,7 @@ import java.text.ParseException;
 import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.HashMap;
 
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.DBIterator;
@@ -87,6 +88,14 @@ public class ValueStorageLevelDB implements GenericKeyValueStore {
 	
 	public void remove(String key) {
 		db.delete(bytes(key));
+	}
+
+	public void putItems(HashMap<String, byte[]> items) throws IOException {
+		Iterator<String> it = items.keySet().iterator();
+		while (it.hasNext()) {
+			String key = it.next();
+			db.put(bytes(key), items.get(key));
+		}
 	}
 	
 	public void clean() {

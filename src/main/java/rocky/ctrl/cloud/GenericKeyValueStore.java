@@ -3,6 +3,7 @@ package rocky.ctrl.cloud;
 import java.io.IOException;
 import java.text.ParseException;
 import java.util.SortedMap;
+import java.util.HashMap;
 
 public interface GenericKeyValueStore {
 
@@ -14,6 +15,8 @@ public interface GenericKeyValueStore {
 	public SortedMap<String, byte[]> get(String start, String end) throws IOException, ParseException;
 	
 	public void put(String key, byte[] value) throws IOException;
+
+	public void putItems(HashMap<String, byte[]> items) throws IOException;
 
 	public void remove(String key);
 	
