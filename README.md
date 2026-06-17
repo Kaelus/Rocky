@@ -48,7 +48,7 @@ NOTE: You need to name the local repo you cloned as 'Rocky'. That is, your git r
      - AWS Access Key ID: fakeMyKeyId
        AWS Secret Access Key: fakeSecretAccessKey
        Default Region Name: fakeRegion
-       Default output format: fakeOutputFormat
+       Default output format: json
 
 4. (optional for Python gRPC client stub) Install python3 and setup virtualenv properly
    - `sudo apt install -y python3-pip`
