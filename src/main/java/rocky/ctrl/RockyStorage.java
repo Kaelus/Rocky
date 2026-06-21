@@ -14,6 +14,12 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.io.BufferedOutputStream;
+import java.io.DataOutputStream;
+import java.io.FileOutputStream;
+
 import com.google.common.base.Charsets;
 
 import rocky.communication.Message;
@@ -62,7 +68,9 @@ public class RockyStorage extends FDBStorage {
 		public static GenericKeyValueStore cloudBlockSnapshotStore;
 		public static GenericKeyValueStore versionMap;
 		public static GenericKeyValueStore localBlockSnapshotStore;
-		
+
+                public static String rheaSnapshotDir;
+    
 		public static CloudPackageManager cloudPackageManager;
 		public static Thread cloudPackageManagerThread;
 		public static Timer flusherTimer;
@@ -117,9 +125,16 @@ public class RockyStorage extends FDBStorage {
 			cloudBlockSnapshotStoreTableName = RockyController.cloudTableNamePrefix + "-cloudBlockSnapshotStoreTable";
 			versionMapTableName = prefixPathForLocalStorage + "-versionMapTable";
 			localBlockSnapshotStoreTableName = prefixPathForLocalStorage + "-localBlockSnapshotStoreTable";
+
+			rheaSnapshotDir = RockyController.workingDir + "/rhea_snapshots";
+			System.out.println("rheaSnapshotDir=" + rheaSnapshotDir);
 			
 			System.out.println("RockyStorage constructor entered");
-			if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
+			if (RockyController.backendStorage.equals(RockyController.BackendStorageType.RheaFile)) {
+			        System.out.println("[RheaFile] Skip DynamoDB cloud backend initialization.");
+				cloudEpochBitmaps = null;
+				cloudBlockSnapshotStore = null;
+			} else if (RockyController.backendStorage.equals(RockyController.BackendStorageType.DynamoDBLocal)) {
 				//pBmStore = new ValueStorageDynamoDB(pBmTableName, true);
 				//cloudEpochBitmaps = new ValueStorageDynamoDB(cloudEpochBitmapsTableName, true);
 				//cloudBlockSnapshotStore = new ValueStorageDynamoDB(cloudBlockSnapshotStoreTableName, true);
@@ -157,13 +172,21 @@ public class RockyStorage extends FDBStorage {
 			}
 			numBlock = (int) (size() / 512); //blocksize=512bytes
 			dirtyBitmap = new BitSet(numBlock);
-			//presenceBitmap = new BitSet(numBlock);
-			//presenceBitmap.set(0, numBlock);
-			presenceBitmap = getPresenceBitmap(numBlock);
+			if (RockyController.backendStorage.equals(RockyController.BackendStorageType.RheaFile)) {
+			        presenceBitmap = new BitSet(numBlock);
+				presenceBitmap.set(0, numBlock);
+			} else {
+			        presenceBitmap = getPresenceBitmap(numBlock);
+			}
 			dirtyBitmap.clear();
 			queue = new LinkedBlockingDeque<WriteRequest>();
-			epochCnt = getEpoch();
-			prefetchedEpoch = getPrefetchedEpoch();
+			if (RockyController.backendStorage.equals(RockyController.BackendStorageType.RheaFile)) {
+			        epochCnt = 0;
+				prefetchedEpoch = 0;
+			} else {
+			        epochCnt = getEpoch();
+				prefetchedEpoch = getPrefetchedEpoch();
+			}
 			System.out.println(">>>> epochCnt=" + epochCnt);
 			System.out.println(">>>> prefetchedEpoch=" + prefetchedEpoch);
 			writeMap = new HashMap<Integer, byte[]>();
@@ -1186,7 +1209,36 @@ public class RockyStorage extends FDBStorage {
 				System.out.println("[CloudPackageManager] Terminating CloudPackageManager Thread");
 			}
 		}
-		
+
+                private static void writeRheaSnapshot(long epoch, BitSet dirtyBitmapClone, HashMap<Integer, byte[]> writeMapClone) throws IOException {
+		        Path root = Path.of(rheaSnapshotDir);
+			Files.createDirectories(root);
+
+			Path mutationTmp = root.resolve("mutation_" + epoch + ".bin.tmp");
+			Path bitmapTmp = root.resolve("bitmap_" + epoch + ".bin.tmp");
+
+			Path mutation = root.resolve("mutation_" + epoch + ".bin");
+			Path bitmap = root.resolve("bitmap_" + epoch + ".bin");
+			Path committed = root.resolve("committed_" + epoch);
+
+			try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(mutationTmp.toFile())))) {
+			        for (Integer blockId : writeMapClone.keySet()) {
+				        byte[] payload = writeMapClone.get(blockId);
+
+					out.writeInt(blockId);
+					out.writeInt(payload.length);
+					out.write(payload);
+				}
+			}
+
+			Files.write(bitmapTmp, dirtyBitmapClone.toByteArray());
+
+			Files.move(mutationTmp, mutation, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+			Files.move(bitmapTmp, bitmap, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+			Files.write(committed, Long.toString(epoch).getBytes());
+		}
+    
 		public class CloudFlusher extends TimerTask {
 			@Override
 			public void run() {
@@ -1205,6 +1257,32 @@ public class RockyStorage extends FDBStorage {
 				}
 				//System.err.println("[CloudFlusher] writeMap lock released");
 				long curEpoch = epochCnt + 1;
+
+				if (RockyController.backendStorage.equals(RockyController.BackendStorageType.RheaFile)) {
+				        try {
+					        writeRheaSnapshot(curEpoch, dirtyBitmapClone, writeMapClone);
+						System.out.println(
+								   "[RheaFile] Snapshot written: epoch="
+								   + curEpoch
+								   + " blocks="
+								   + writeMapClone.size()
+								   );
+						epochCnt++;
+					} catch (IOException e) {
+					        e.printStackTrace();
+						System.err.println("[RheaFile] Failed to write snapshot for epoch=" + curEpoch);
+						System.exit(1);
+					}
+
+					if (!lastFlushingFlag) {
+					        flusherTimer = new Timer();
+						nextFlusherTask = new CloudFlusher();
+						flusherTimer.schedule(nextFlusherTask, RockyController.epochPeriod);
+					}
+
+					return;
+				}
+				
 				for (Integer i : writeMapClone.keySet()) {
 					byte[] buf = writeMapClone.get(i);
 					try {
