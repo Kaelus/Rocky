@@ -56,7 +56,7 @@ public class RockyController {
 	public static RockyModeType rockyMode; 
 	
 	public enum BackendStorageType {DynamoDBLocal, DynamoDB_SEOUL, 
-		DynamoDB_LONDON, DynamoDB_OHIO, Unknown};
+	    DynamoDB_LONDON, DynamoDB_OHIO, RheaFile, Unknown};
 	public static BackendStorageType backendStorage;
 	
 	public enum RockyControllerRoleType {Owner, NonOwner, None};
@@ -214,8 +214,10 @@ public class RockyController {
 		    	   } else if (backendStorageTypeStr.equals("dynamoDBLondon")) {
 		    		   backendStorage = BackendStorageType.DynamoDB_LONDON;
 		    	   } else if (backendStorageTypeStr.equals("dynamoDBOhio")) {
-		    		   backendStorage = BackendStorageType.DynamoDB_OHIO;
-		    	   } else {
+			           backendStorage = BackendStorageType.DynamoDB_OHIO;
+		    	   } else if (backendStorageTypeStr.equals("rheaFile")) {
+  			           backendStorage = BackendStorageType.RheaFile;
+			   } else {
 		    		   backendStorage = BackendStorageType.Unknown;
 		    	   }
 		    	   System.out.println("backendStorageType=" + backendStorage);
