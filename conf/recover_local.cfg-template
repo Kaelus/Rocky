@@ -1,7 +1,7 @@
 ip=127.0.0.1:12300
 lcvdName=testinglocal
 rockyMode=recovery
-backendStorageType=dynamoDBLocal
+backendStorageType=rheaFile
 epochPeriod=60000000
 prefetchPeriod=60000000
 workingDir=..
