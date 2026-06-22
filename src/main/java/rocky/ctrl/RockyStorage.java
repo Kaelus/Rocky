@@ -195,10 +195,20 @@ public class RockyStorage extends FDBStorage {
 			lastFlushingFlag = false;
 			prefetcher = new Prefetcher(this);
 			prefetcherThread = new Thread(prefetcher);
-			RockyController.role = RockyControllerRoleType.None;
-			roleSwitchFlag = false;
-			roleSwitcherThread = new Thread(new RoleSwitcher());
-			roleSwitcherThread.start();
+			if (RockyController.backendStorage.equals(RockyController.BackendStorageType.RheaFile)) {
+			        RockyController.role = RockyControllerRoleType.Owner;
+				roleSwitchFlag = false;
+				roleSwitcherThread = new Thread(() -> {});
+				System.out.println("[RheaFile] Start as Owner; ownership disabled.");
+
+				cloudPackageManagerThread.start();
+				System.out.println("[RheaFile] CloudPackageManager started.");
+			} else {
+			        RockyController.role = RockyControllerRoleType.None;
+				roleSwitchFlag = false;
+				roleSwitcherThread = new Thread(new RoleSwitcher());
+				roleSwitcherThread.start();
+			}			
 			cui = new ControlUserInterfaceRunner(roleSwitcherThread);
 			cui.rockyStorage = this;
 			controlUIThread = new Thread(cui);
@@ -718,6 +728,11 @@ public class RockyStorage extends FDBStorage {
 		}
 		
 		public void takeOwnership() {
+		        if (RockyController.backendStorage.equals(RockyController.BackendStorageType.RheaFile)) {
+			        System.out.println("[RheaFile] ownership command ignored.");
+				return;
+			}
+		    
 			String ownerID = null;
 			byte[] latestEpochBytes = null;
 			long latestEpoch = -1;
@@ -751,6 +766,12 @@ public class RockyStorage extends FDBStorage {
 		}
 		
 		public void renounceOwnership() {
+
+		        if (RockyController.backendStorage.equals(RockyController.BackendStorageType.RheaFile)) {
+			        System.out.println("[RheaFile] renounceOwnership ignored.");
+				return;
+			}
+		    
 			stopCloudPackageManager();
 			cloudBlockSnapshotStore.remove("owner");
 		}
