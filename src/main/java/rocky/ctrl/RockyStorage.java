@@ -14,6 +14,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 
+import java.util.Collections;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.io.BufferedOutputStream;
@@ -1240,9 +1241,20 @@ public class RockyStorage extends FDBStorage {
 			}
 		}
 
+
                 private static void writeRheaSnapshot(long epoch, BitSet dirtyBitmapClone, HashMap<Integer, byte[]> writeMapClone) throws IOException {
+		        /*
+			 * epoch: int64, big-endian
+			 * num_records: int64, big-endian
+			 * repeated num_records times:
+			 *     block_id: int32, big-endian
+			 *     payload_len: int32, big-endian
+			 *     payload: payload_len bytes
+			 *
+			 */
+
 		        Path root = Path.of(rheaSnapshotDir);
-			Files.createDirectories(root);
+		        Files.createDirectories(root);
 
 			Path mutationTmp = root.resolve("mutation_" + epoch + ".bin.tmp");
 			Path bitmapTmp = root.resolve("bitmap_" + epoch + ".bin.tmp");
@@ -1252,7 +1264,13 @@ public class RockyStorage extends FDBStorage {
 			Path committed = root.resolve("committed_" + epoch);
 
 			try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(mutationTmp.toFile())))) {
-			        for (Integer blockId : writeMapClone.keySet()) {
+			        List<Integer> blockIds = new ArrayList<>(writeMapClone.keySet());
+				Collections.sort(blockIds);
+
+				out.writeLong(epoch);
+				out.writeLong(blockIds.size());
+				
+				for (Integer blockId : blockIds) {
 				        byte[] payload = writeMapClone.get(blockId);
 
 					out.writeInt(blockId);
