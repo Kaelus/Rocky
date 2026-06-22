@@ -213,13 +213,17 @@ public class RockyStorage extends FDBStorage {
 			cui.rockyStorage = this;
 			controlUIThread = new Thread(cui);
 			controlUIThread.start();
-			timetraveler = new RockyTimeTraveler(roleSwitcherThread);
-			timetraveler.rockyStorage = this;
-			try {
-				timetraveler.start();
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			if (RockyController.backendStorage.equals(RockyController.BackendStorageType.RheaFile)) {
+			        timetraveler = null;
+				System.out.println("[RheaFile] Skip RockyTimeTraveler.");
+			} else {
+			        timetraveler = new RockyTimeTraveler(roleSwitcherThread);
+				timetraveler.rockyStorage = this;
+				try {
+				        timetraveler.start();
+				} catch (IOException e) {
+				        e.printStackTrace();
+				}
 			}
 			if (RockyController.pComType.equals(RockyController.RockyPeerCommunicationType.XMLRPC)) {
 				PeerComXMLRPC pComXMLRPC = new PeerComXMLRPC(RockyController.nodeID +"-peerComXMLRPC");
@@ -1181,7 +1185,12 @@ public class RockyStorage extends FDBStorage {
 		}
 		
 		public void stopRockyTimeTraveler() {
-			System.out.println("stopping the RockyTimeTraveler");
+		        if (timetraveler == null) {
+			        System.out.println("[RheaFile] RockyTimeTraveler is not running.");
+				return;
+			}
+
+		        System.out.println("stopping the RockyTimeTraveler");
 			try {
 				timetraveler.stop();
 				timetraveler.blockUntilShutdown();
