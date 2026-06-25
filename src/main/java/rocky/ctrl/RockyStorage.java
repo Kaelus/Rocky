@@ -79,7 +79,7 @@ public class RockyStorage extends FDBStorage {
 		public static boolean lastFlushingFlag;
 		//private final AtomicBoolean running = new AtomicBoolean(false);
 		protected final BlockingQueue<WriteRequest> queue;
-		public HashMap<Integer, byte[]> writeMap;
+		public HashMap<Long, byte[]> writeMap;
 
 		public Thread roleSwitcherThread;
 		public Object prefetchFlush;
@@ -567,7 +567,7 @@ public class RockyStorage extends FDBStorage {
 		    	System.arraycopy(buffer, (int) ((i - firstBlock) * blockSize), copyBuf, 0, copySize);
 		    	wr.buf = copyBuf;
 		    	//wr.offset = offset;
-			    wr.offset = i * blockSize;
+			wr.offset = ((long)i) * blockSize;
 			    try {
 			    	//System.out.println("[RockyStorage] enqueuing WriteRequest for blockID=" 
 			    	//		+ ((int) wr.offset / blockSize));
@@ -1160,7 +1160,11 @@ public class RockyStorage extends FDBStorage {
 			WriteRequest wr = null;
 			while ((wr = queue.poll()) != null) {
 				synchronized(writeMap) {
-					writeMap.put((int) (wr.offset / blockSize), wr.buf);
+				        long blockIdLong = wr.offset / blockSize;
+					if (blockIdLong < 0 || blockIdLong > Integer.MAX_VALUE) {
+					        throw new IllegalStateException("blockId out of int range: " + blockIdLong);
+					}
+					writeMap.put(blockIdLong, wr.buf);
 				}
 			}
 			Thread lastFlusherThread = new Thread(new CloudFlusher());
@@ -1218,12 +1222,16 @@ public class RockyStorage extends FDBStorage {
 						WriteRequest wr = q.take();
 						if (debugPrintoutFlag) {
 							System.out.println("[CloudPackageManager] dequeued WriteRequest for blockID=" 
-								+ ((int) wr.offset / blockSize));
+								+ (wr.offset / blockSize));
 						}
 							//System.err.println("[CloudPackageManager] writeMap lock acquire attempt");
 				    	synchronized(writeMap) {
 							//System.err.println("[CloudPackageManager] writeMap lock acquired");
-							writeMap.put((int) (wr.offset / blockSize), wr.buf);
+					                long blockIdLong = wr.offset / blockSize;
+							if (blockIdLong < 0 || blockIdLong > Integer.MAX_VALUE) {
+							        throw new IllegalStateException("blockId out of int range: " + blockIdLong);
+							}
+							writeMap.put(blockIdLong, wr.buf);
 							//System.err.println("[CloudPackageManager] writeMap put for blockID=" 
 							//		+ (int) (wr.offset / blockSize));
 						}
@@ -1247,7 +1255,7 @@ public class RockyStorage extends FDBStorage {
 			 * epoch: int64, big-endian
 			 * num_records: int64, big-endian
 			 * repeated num_records times:
-			 *     block_id: int32, big-endian
+			 *     block_id: int64, big-endian
 			 *     payload_len: int32, big-endian
 			 *     payload: payload_len bytes
 			 *
@@ -1264,16 +1272,16 @@ public class RockyStorage extends FDBStorage {
 			Path committed = root.resolve("committed_" + epoch);
 
 			try (DataOutputStream out = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(mutationTmp.toFile())))) {
-			        List<Integer> blockIds = new ArrayList<>(writeMapClone.keySet());
+			        List<Long> blockIds = new ArrayList<>(writeMapClone.keySet());
 				Collections.sort(blockIds);
 
 				out.writeLong(epoch);
 				out.writeLong(blockIds.size());
 				
-				for (Integer blockId : blockIds) {
+				for (Long blockId : blockIds) {
 				        byte[] payload = writeMapClone.get(blockId);
 
-					out.writeInt(blockId);
+					out.writeLong(blockId);
 					out.writeInt(payload.length);
 					out.write(payload);
 				}
@@ -1292,12 +1300,12 @@ public class RockyStorage extends FDBStorage {
 			public void run() {
 				System.out.println("[CloudFlusher] Entered CloudFlusher run");
 				//System.err.println("[CloudFlusher] writeMap lock acquire attempt");
-				HashMap<Integer, byte[]> writeMapClone = null;
+				HashMap<Long, byte[]> writeMapClone = null;
 				BitSet dirtyBitmapClone = null;
 				synchronized(writeMap) {
 					//System.err.println("[CloudFlusher] writeMap lock acquired");
 					synchronized (dirtyBitmap) {
-						writeMapClone = (HashMap<Integer, byte[]>) writeMap.clone();
+						writeMapClone = (HashMap<Long, byte[]>) writeMap.clone();
 						writeMap.clear();
 						dirtyBitmapClone = (BitSet) dirtyBitmap.clone();
 						dirtyBitmap.clear();
@@ -1331,7 +1339,7 @@ public class RockyStorage extends FDBStorage {
 					return;
 				}
 				
-				for (Integer i : writeMapClone.keySet()) {
+				for (Long i : writeMapClone.keySet()) {
 					byte[] buf = writeMapClone.get(i);
 					try {
 						String blockSnapshotID = curEpoch + ":" + i;
