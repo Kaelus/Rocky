@@ -190,7 +190,7 @@ public class RockyStorage extends FDBStorage {
 			}
 			System.out.println(">>>> epochCnt=" + epochCnt);
 			System.out.println(">>>> prefetchedEpoch=" + prefetchedEpoch);
-			writeMap = new HashMap<Integer, byte[]>();
+			writeMap = new HashMap<Long, byte[]>();
 			cloudPackageManager = new CloudPackageManager(queue);
 			cloudPackageManagerThread = new Thread(cloudPackageManager);
 			lastFlushingFlag = false;
@@ -1250,7 +1250,7 @@ public class RockyStorage extends FDBStorage {
 		}
 
 
-                private static void writeRheaSnapshot(long epoch, BitSet dirtyBitmapClone, HashMap<Integer, byte[]> writeMapClone) throws IOException {
+                private static void writeRheaSnapshot(long epoch, BitSet dirtyBitmapClone, HashMap<Long, byte[]> writeMapClone) throws IOException {
 		        /*
 			 * epoch: int64, big-endian
 			 * num_records: int64, big-endian
